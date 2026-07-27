@@ -8,16 +8,27 @@ struct ControlSchema: Codable, Equatable, Sendable {
     var control: [ControlSection]
     var preference: [ControlSection]
 
+    /// True when the server sent no renderable controls at all. Happens for
+    /// a device that was only just provisioned, whose `controlsConf` comes
+    /// back holding nothing but a `template` field.
+    var isEmpty: Bool { control.isEmpty && preference.isEmpty }
+
     init(control: [ControlSection] = [], preference: [ControlSection] = []) {
         self.control = control
         self.preference = preference
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        control = container.decodeLossyArray(ControlSection.self, forKey: .control)
+        preference = container.decodeLossyArray(ControlSection.self, forKey: .preference)
     }
 }
 
 struct ControlSection: Codable, Equatable, Identifiable, Sendable {
     let rawId: String?
     let type: String
-    let title: String
+    let title: String?
     let cmd: String?
     let items: [ControlItem]?
 

@@ -12,10 +12,15 @@ struct DeviceControlView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
 
-            if let sections = device.controlsConf?.control {
+            if let sections = device.controlsConf?.control, !sections.isEmpty {
                 ForEach(sections) { section in
                     sectionView(for: section)
                 }
+            } else {
+                Text("No controls reported for this device yet. Power still works.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 14)
@@ -60,7 +65,7 @@ struct DeviceControlView: View {
             speedSlider(for: section)
         case "Mode":
             VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(icon: "list.bullet", title: section.title.dreoTitleCased)
+                SectionHeader(icon: "list.bullet", title: (section.title ?? section.type).dreoTitleCased)
                 chipRow(items: section.items ?? [])
             }
         case "Oscillation":
@@ -78,7 +83,11 @@ struct DeviceControlView: View {
            let cmd = items.first?.cmd {
             let current = device.state[cmd]?.intValue ?? low
             VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(icon: "wind", title: section.title.dreoTitleCased, trailing: "\(current)")
+                SectionHeader(
+                    icon: "wind",
+                    title: (section.title ?? section.type).dreoTitleCased,
+                    trailing: "\(current)"
+                )
                 Slider(
                     value: Binding(
                         get: { Double(current) },
@@ -95,7 +104,7 @@ struct DeviceControlView: View {
     private func oscillationControls(for section: ControlSection) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionHeader(icon: "arrow.left.and.right", title: section.title.dreoTitleCased)
+                SectionHeader(icon: "arrow.left.and.right", title: (section.title ?? section.type).dreoTitleCased)
                 if let cmd = section.cmd {
                     Spacer()
                     Toggle("Oscillation", isOn: Binding(
@@ -133,7 +142,7 @@ struct DeviceControlView: View {
     private func fallbackChips(for section: ControlSection) -> some View {
         if let items = section.items, !items.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(icon: "slider.horizontal.3", title: section.title.dreoTitleCased)
+                SectionHeader(icon: "slider.horizontal.3", title: (section.title ?? section.type).dreoTitleCased)
                 chipRow(items: items)
             }
         }

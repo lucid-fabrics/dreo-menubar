@@ -21,8 +21,7 @@ struct DreoBarApp: App {
         .menuBarExtraStyle(.window)
 
         Window("Add a Device", id: "add-device") {
-            AddDeviceView()
-                .environment(appModel)
+            AddDeviceView(appModel: appModel)
         }
         .windowResizability(.contentSize)
 

@@ -14,7 +14,8 @@ struct AddDeviceView: View {
         case failed(String)
     }
 
-    @Environment(AppModel.self) private var appModel
+    let appModel: AppModel
+
     @State private var step: Step = .connecting
     @State private var password = ""
     @State private var bleService = DreoBLEPairingService()

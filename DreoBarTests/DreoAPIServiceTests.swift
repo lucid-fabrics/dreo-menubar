@@ -113,6 +113,59 @@ final class DreoAPIServiceTests: XCTestCase {
         XCTAssertEqual(devices[0].controlsConf?.control.first?.items?.count, 2)
     }
 
+    func test_listDevices_keepsDevicesWhoseControlsConfHasNoSections() async throws {
+        MockURLProtocolStub.handler = { request in
+            if request.url?.path == "/api/oauth/login" {
+                let body = #"{"code":0,"msg":"OK","data":{"access_token":"tok","region":"NA"}}"#
+                return (Self.httpResponse(for: request), Data(body.utf8))
+            }
+            // A freshly provisioned device reports a controlsConf carrying
+            // only "template". That must not discard the other device.
+            let body = #"""
+            {"code":0,"msg":"OK","data":{"list":[
+                {"sn":"SN1","deviceName":"Tower Fan","model":"DR-HTF004S",
+                 "controlsConf":{"control":[{"id":"110","type":"Speed","title":"speed",
+                 "items":[{"text":"1","cmd":"windlevel","value":1}]}],"preference":[]}},
+                {"sn":"SN2","deviceName":"Air Circulator","model":"DR-HPF008S",
+                 "controlsConf":{"template":"someTemplate"}}
+            ]}}
+            """#
+            return (Self.httpResponse(for: request), Data(body.utf8))
+        }
+
+        let service = DreoAPIService(urlSession: MockURLProtocolStub.makeSession())
+        try await service.login(DreoCredentials(email: "user@example.com", password: "secret"))
+        let devices = try await service.listDevices()
+
+        XCTAssertEqual(devices.map(\.serialNumber), ["SN1", "SN2"])
+        XCTAssertEqual(devices[0].controlsConf?.control.count, 1)
+        XCTAssertEqual(devices[1].controlsConf?.isEmpty, true)
+    }
+
+    func test_listDevices_dropsOnlyTheUnparseableDevice() async throws {
+        MockURLProtocolStub.handler = { request in
+            if request.url?.path == "/api/oauth/login" {
+                let body = #"{"code":0,"msg":"OK","data":{"access_token":"tok","region":"NA"}}"#
+                return (Self.httpResponse(for: request), Data(body.utf8))
+            }
+            // Second entry is missing the required "sn"; the others survive.
+            let body = #"""
+            {"code":0,"msg":"OK","data":{"list":[
+                {"sn":"SN1","deviceName":"A","model":"M1"},
+                {"deviceName":"Broken","model":"M2"},
+                {"sn":"SN3","deviceName":"C","model":"M3"}
+            ]}}
+            """#
+            return (Self.httpResponse(for: request), Data(body.utf8))
+        }
+
+        let service = DreoAPIService(urlSession: MockURLProtocolStub.makeSession())
+        try await service.login(DreoCredentials(email: "user@example.com", password: "secret"))
+        let devices = try await service.listDevices()
+
+        XCTAssertEqual(devices.map(\.serialNumber), ["SN1", "SN3"])
+    }
+
     func test_fetchState_flattensWrappedAndRawValues() async throws {
         MockURLProtocolStub.handler = { request in
             if request.url?.path == "/api/oauth/login" {
