@@ -93,7 +93,7 @@ actor DreoSocketService: DreoSocketServiceProtocol {
         reconnectTask = Task {
             try? await Task.sleep(for: Constants.Socket.reconnectDelay)
             guard !Task.isCancelled else { return }
-            await self.reopenIfNeeded()
+            self.reopenIfNeeded()
         }
     }
 

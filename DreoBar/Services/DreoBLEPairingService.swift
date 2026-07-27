@@ -19,7 +19,7 @@ import os
 final class DreoBLEPairingService: NSObject, @unchecked Sendable {
     private static let logger = Logger(subsystem: "com.dreobar", category: "DreoBLEPairingService")
 
-    private nonisolated(unsafe) lazy var centralManager = CBCentralManager(delegate: self, queue: .main)
+    private lazy var centralManager = CBCentralManager(delegate: self, queue: .main)
     private nonisolated(unsafe) var peripheral: CBPeripheral?
     private nonisolated(unsafe) var characteristics: [CBUUID: CBCharacteristic] = [:]
 
