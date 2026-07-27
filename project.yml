@@ -1,0 +1,69 @@
+name: DreoBar
+options:
+  bundleIdPrefix: com.dreobar
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: KRPUAN3FFA
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+packages:
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 2.2.0
+targets:
+  DreoBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: DreoBar
+    dependencies:
+      - package: KeyboardShortcuts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dreobar.app
+    info:
+      path: DreoBar/Resources/Info.plist
+      properties:
+        LSUIElement: true
+        NSSupportsAutomaticTermination: true
+        NSSupportsSuddenTermination: false
+        NSBluetoothAlwaysUsageDescription: "DreoBar uses Bluetooth to pair new Dreo fans onto your WiFi network."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.dreobar.app
+            CFBundleURLSchemes:
+              - dreobar
+    entitlements:
+      path: DreoBar/Resources/DreoBar.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.device.bluetooth: true
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.dreobar
+  DreoBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: DreoBarTests
+    dependencies:
+      - target: DreoBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dreobar.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  DreoBar:
+    build:
+      targets:
+        DreoBar: all
+        DreoBarTests: [test]
+    test:
+      targets:
+        - DreoBarTests
+    run:
+      config: Debug

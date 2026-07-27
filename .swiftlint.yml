@@ -1,0 +1,13 @@
+excluded:
+  - .build
+  - DerivedData
+  - build
+
+line_length:
+  warning: 120
+  error: 160
+
+identifier_name:
+  min_length: 3
+  excluded:
+    - id
