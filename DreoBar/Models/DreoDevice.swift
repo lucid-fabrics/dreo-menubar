@@ -25,6 +25,13 @@ struct DreoDevice: Identifiable, Equatable, Sendable {
         self.state = state
     }
 
+    /// Whether the device is currently reachable through Dreo's cloud. A
+    /// device that never reports `connected` is assumed reachable, so an
+    /// older product is not shown as offline purely for staying quiet.
+    var isOnline: Bool {
+        state["connected"]?.boolValue ?? true
+    }
+
     /// Some Dreo devices report power as `poweron`, others as `fanon`.
     var powerKey: String {
         state["poweron"] != nil ? "poweron" : "fanon"

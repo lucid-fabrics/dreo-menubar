@@ -20,7 +20,12 @@ struct DeviceControlView: View {
         VStack(alignment: .leading, spacing: Theme.Space.roomy) {
             header
 
-            if sections.isEmpty && preferences.isEmpty {
+            if !device.isOnline {
+                Text("This device is offline. Check it has power and is in range of your WiFi.")
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if sections.isEmpty && preferences.isEmpty {
                 Text("No controls published for this model. Power still works.")
                     .font(Theme.Font.caption)
                     .foregroundStyle(.secondary)
@@ -39,22 +44,36 @@ struct DeviceControlView: View {
             RoundedRectangle(cornerRadius: Theme.Metric.cardRadius, style: .continuous)
                 .fill(Theme.surface(scheme))
         )
-        .opacity(device.isOn ? 1 : 0.72)
+        // Nothing sent to an unreachable device can take effect, so the whole
+        // card stops accepting input rather than silently dropping commands.
+        .disabled(!device.isOnline)
+        .opacity(cardOpacity)
         .animation(.easeOut(duration: 0.18), value: device.isOn)
+        .animation(.easeOut(duration: 0.18), value: device.isOnline)
     }
 
     // MARK: - Header
+
+    private var cardOpacity: Double {
+        if !device.isOnline { return 0.55 }
+        return device.isOn ? 1 : 0.72
+    }
+
+    private var iconTint: Color {
+        guard device.isOnline else { return .secondary }
+        return device.isOn ? .accentColor : .secondary
+    }
 
     private var header: some View {
         HStack(spacing: Theme.Space.snug) {
             ZStack {
                 Circle()
-                    .fill(device.isOn ? Color.accentColor.opacity(0.18) : Theme.surfaceRaised(scheme))
+                    .fill(iconTint.opacity(0.18))
                     .frame(width: 30, height: 30)
-                Image(systemName: device.isOn ? "fan.fill" : "fan")
+                Image(systemName: device.isOnline ? (device.isOn ? "fan.fill" : "fan") : "fan.slash")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(device.isOn ? Color.accentColor : Color.secondary)
-                    .symbolEffect(.variableColor.iterative, isActive: device.isOn)
+                    .foregroundStyle(iconTint)
+                    .symbolEffect(.variableColor.iterative, isActive: device.isOn && device.isOnline)
             }
 
             VStack(alignment: .leading, spacing: 1) {
@@ -62,11 +81,18 @@ struct DeviceControlView: View {
                     .font(Theme.Font.deviceName)
                     .lineLimit(1)
                 HStack(spacing: 5) {
-                    Text(device.model)
-                    if let temperature = device.state["temperature"]?.intValue {
+                    if device.isOnline {
+                        Text(device.model)
+                        if let temperature = device.state["temperature"]?.intValue {
+                            Text("·")
+                            Text("\(temperature)°")
+                                .monospacedDigit()
+                        }
+                    } else {
+                        Text("Offline")
+                            .foregroundStyle(.secondary)
                         Text("·")
-                        Text("\(temperature)°")
-                            .monospacedDigit()
+                        Text(device.model)
                     }
                 }
                 .font(Theme.Font.deviceMeta)

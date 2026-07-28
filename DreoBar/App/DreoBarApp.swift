@@ -16,7 +16,7 @@ struct DreoBarApp: App {
         MenuBarExtra {
             MenuBarView(appModel: appModel)
         } label: {
-            Image(systemName: appModel.lastSelectedOrFirstDevice?.isOn == true ? "fan.fill" : "fan")
+            Image(systemName: appModel.menuBarSymbol)
         }
         .menuBarExtraStyle(.window)
 

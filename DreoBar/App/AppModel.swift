@@ -46,12 +46,24 @@ final class AppModel {
         self.settingsRepository = settingsRepository
     }
 
+    /// Target for the global hotkey and the URL scheme. An explicit choice
+    /// is honoured even while it's offline, but the automatic fallback skips
+    /// unreachable devices so the hotkey acts on one that can respond.
     var lastSelectedOrFirstDevice: DreoDevice? {
         if let serialNumber = settings.lastSelectedDeviceSerialNumber,
            let match = devices.first(where: { $0.serialNumber == serialNumber }) {
             return match
         }
-        return devices.first
+        return devices.first(where: \.isOnline) ?? devices.first
+    }
+
+    /// Menu bar icon. Only shows running when a device is genuinely both
+    /// reachable and on, so a stale "on" from an offline fan doesn't read as
+    /// though it's still blowing.
+    var menuBarSymbol: String {
+        guard let device = lastSelectedOrFirstDevice else { return "fan" }
+        guard device.isOnline else { return "fan.slash" }
+        return device.isOn ? "fan.fill" : "fan"
     }
 
     func start() async {
