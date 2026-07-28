@@ -176,7 +176,7 @@ DreoBar/
 ```
 
 Swift 6 with strict concurrency on. `@MainActor @Observable` for app state, actors for anything
-doing I/O, protocols and hand-written fakes for tests rather than a mocking framework. 51 tests,
+doing I/O, protocols and hand-written fakes for tests rather than a mocking framework. 59 tests,
 none of which touch the network or the real Keychain.
 
 The CBOR encoder is about 250 lines and hand-rolled, because pulling in a dependency to write
@@ -196,6 +196,15 @@ so nothing reaches this app to record, but every one of these tools can emit a n
 instead. Assign the key something like Ctrl-Opt-2, then record that against a fan under More
 Options. From then on it behaves like any other shortcut.
 
+- **iCUE** - Key Assignments tab, select the key (e.g. G1), set Assignment Type to **Keystroke**,
+  not Macro or Launch Application, then remap it to something like Ctrl+Alt+1
+- **Stream Deck** - drag the **Hotkey** action onto a button, click the key field, then press the
+  combination directly (or type it in) rather than choosing System/App actions
+- **Karabiner-Elements** - Simple Modification (or a Complex Modification rule), map the physical
+  key to a **To** event with the modifiers set, e.g. `left_control` + `left_option` + `1`
+- **Foot pedals / other HID macro pads** - same idea: whatever field lets you record a raw
+  keystroke rather than a named command or app launch
+
 For scripting and automation, each control is also reachable by URL:
 
 ```bash
@@ -207,6 +216,27 @@ open "dreobar://adjust?device=<serial>&key=windlevel&delta=1"    # one step fast
 `Copy Trigger Link` in a fan's menu puts its URL on the clipboard. `adjust` clamps to the range
 the fan itself publishes, and `key` accepts any command from that device's schema, so `windtype`
 and `shakehorizon` work the same way. Without `device`, `toggle` hits whichever fan you used last.
+
+### If the key is assigned correctly and still does nothing
+
+Software like iCUE, the Stream Deck app, or Karabiner-Elements doesn't send a keystroke itself.
+It hands the combination to a **virtual keyboard driver** it installs at the OS level, and that
+driver is what macOS actually sees. If the driver gets stuck mid-upgrade, which happens to iCUE
+after Corsair ships a new version, the app still shows your key assignment as correct, but there
+is no working virtual device behind it, so nothing arrives.
+
+Two things confirm this from a terminal:
+
+```bash
+systemextensionsctl list                       # look for your macro app's driver
+ioreg -c IOHIDDevice -r -d 1 | grep -i virtual  # is a virtual keyboard actually present?
+```
+
+An entry stuck on something like `terminating for upgrade` instead of `activated enabled`, or no
+virtual device in the second command at all, means the driver never finished restarting. A reboot
+is what actually clears it, reopening the macro app's settings does not. After rebooting, test the
+same combination typed on the real keyboard first to confirm DreoBar's side is fine, then test the
+macro key itself.
 
 ## Things that will annoy you
 
