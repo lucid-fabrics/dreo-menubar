@@ -23,6 +23,18 @@ actor DreoAPIServiceStub: DreoAPIServiceProtocol {
         try stateResult.get()
     }
 
+    private(set) var removedSerialNumbers: [String] = []
+    var removeResult: Result<Void, Error> = .success(())
+
+    func removeDevice(serialNumber: String) async throws {
+        removedSerialNumbers.append(serialNumber)
+        try removeResult.get()
+    }
+
+    func setRemoveResult(_ result: Result<Void, Error>) {
+        removeResult = result
+    }
+
     func currentSession() async -> DreoSession? {
         sessionToReturn
     }

@@ -82,6 +82,29 @@ actor DreoAPIService: DreoAPIServiceProtocol {
         return mixed
     }
 
+    /// Unbinds a device from the account. This is Dreo's own "Delete Device":
+    /// it removes the fan for every app signed into the account, not just
+    /// this one, and getting it back means pairing it again.
+    ///
+    /// The serial goes in the body, not the query string; sending it as a
+    /// query parameter is rejected as a missing parameter.
+    func removeDevice(serialNumber: String) async throws {
+        guard accessToken != nil else { throw DreoAPIError.notAuthenticated }
+
+        let url = try makeURL(path: "/api/user-device/device", queryItems: [
+            URLQueryItem(name: "timestamp", value: Self.timestamp())
+        ])
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        applyHeaders(&request, includeAuth: true)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["deviceSn": serialNumber])
+
+        let envelope: DreoAPIEnvelope<DreoEmptyPayload> = try await sendWithReauth(request)
+        guard envelope.code == 0 else {
+            throw DreoAPIError.apiError(code: envelope.code, message: envelope.msg ?? "remove device failed")
+        }
+    }
+
     // MARK: - Login internals
 
     private func performLogin(credentials: DreoCredentials, allowRegionRetry: Bool) async throws {

@@ -10,6 +10,7 @@ struct DeviceControlView: View {
 
     @Environment(\.colorScheme) private var scheme
     @State private var showsPreferences = false
+    @State private var showsRemoveConfirmation = false
 
     private var sections: [ControlSection] { device.controlsConf?.control ?? [] }
     private var preferences: [ControlSection] {
@@ -39,17 +40,39 @@ struct DeviceControlView: View {
                 }
             }
         }
+        // Nothing sent to an unreachable device can take effect, so its
+        // controls stop accepting input rather than silently dropping
+        // commands. Scoped to the card's contents, not the card, so removing
+        // an offline device stays possible.
+        .disabled(!device.isOnline)
         .padding(Theme.Metric.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: Theme.Metric.cardRadius, style: .continuous)
                 .fill(Theme.surface(scheme))
         )
-        // Nothing sent to an unreachable device can take effect, so the whole
-        // card stops accepting input rather than silently dropping commands.
-        .disabled(!device.isOnline)
         .opacity(cardOpacity)
         .animation(.easeOut(duration: 0.18), value: device.isOn)
         .animation(.easeOut(duration: 0.18), value: device.isOnline)
+        // Kept out of the card body so a destructive action can't be hit by
+        // mistake while reaching for a speed or mode control.
+        .contextMenu {
+            Button("Remove \(device.deviceName)…", role: .destructive) {
+                showsRemoveConfirmation = true
+            }
+        }
+        .confirmationDialog(
+            "Remove \(device.deviceName)?",
+            isPresented: $showsRemoveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Remove Device", role: .destructive) {
+                Task { await appModel.removeDevice(device) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This unlinks the fan from your Dreo account everywhere, not just on this Mac. "
+                 + "To use it again you would have to pair it from scratch.")
+        }
     }
 
     // MARK: - Header

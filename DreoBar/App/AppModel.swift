@@ -103,6 +103,21 @@ final class AppModel {
         await apiService.currentSession()
     }
 
+    /// Unbinds a device from the Dreo account. This affects the account, not
+    /// just this app, so callers must confirm with the user first.
+    func removeDevice(_ device: DreoDevice) async {
+        do {
+            try await apiService.removeDevice(serialNumber: device.serialNumber)
+            devices.removeAll { $0.serialNumber == device.serialNumber }
+            if settings.lastSelectedDeviceSerialNumber == device.serialNumber {
+                settings.lastSelectedDeviceSerialNumber = nil
+            }
+        } catch {
+            Self.logger.warning("Remove failed: \(String(describing: error), privacy: .public)")
+            errorMessage = "Couldn't remove \(device.deviceName). Check your connection and try again."
+        }
+    }
+
     func togglePower(for device: DreoDevice) {
         setValue(.bool(!device.isOn), forKey: device.powerKey, on: device)
     }
