@@ -266,6 +266,12 @@ struct DeviceControlView: View {
                         )
                         .controlSize(.small)
                     }
+                    // The recorder listens with a local event monitor, which
+                    // only sees keystrokes while this app is active. A menu
+                    // bar popover does not activate its app on its own, so
+                    // without this the recorder opens but never registers the
+                    // key. Activating leaves the popover open.
+                    .onAppear { NSApp.activate(ignoringOtherApps: true) }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
