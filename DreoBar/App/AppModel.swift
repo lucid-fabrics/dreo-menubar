@@ -30,6 +30,7 @@ final class AppModel {
     @ObservationIgnored private let keychainRepository: KeychainRepositoryProtocol
     @ObservationIgnored private let settingsRepository: SettingsRepositoryProtocol
 
+    @ObservationIgnored private let shortcutBinder = DeviceShortcutBinder()
     @ObservationIgnored private var hasLoadedSettings = false
     @ObservationIgnored private var settingsSaveTask: Task<Void, Never>?
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
@@ -127,6 +128,15 @@ final class AppModel {
         togglePower(for: device)
     }
 
+    /// Toggles one specific device, used by that device's own keyboard
+    /// shortcut. Silently does nothing if the device is gone or unreachable,
+    /// since a keypress has nowhere to report an error.
+    func togglePower(serialNumber: String) {
+        guard let device = devices.first(where: { $0.serialNumber == serialNumber }),
+              device.isOnline else { return }
+        togglePower(for: device)
+    }
+
     /// Re-lists devices on the account. Picks up anything newly paired,
     /// whether through this app's own BLE provisioning or the official
     /// Dreo app.
@@ -178,6 +188,11 @@ final class AppModel {
             }
         }
         devices = loaded
+        // Bind a shortcut for anything newly seen. Devices only exist after
+        // the account loads, so this cannot be declared up front.
+        shortcutBinder.bind(devices: loaded) { [weak self] serialNumber in
+            self?.togglePower(serialNumber: serialNumber)
+        }
     }
 
     private func subscribeToUpdates() {

@@ -28,7 +28,7 @@ struct DreoBarApp: App {
         .windowResizability(.contentSize)
 
         Settings {
-            SettingsView()
+            SettingsView(appModel: appModel)
                 .tint(Theme.accent)
         }
     }
