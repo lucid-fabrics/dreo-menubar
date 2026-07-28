@@ -4,6 +4,18 @@ A little macOS menu bar app for controlling [Dreo](https://www.dreo.com) fans, a
 the first public write-up of how Dreo's Bluetooth pairing actually works.
 
 <p align="center">
+  <a href="https://github.com/sponsors/lucid-fabrics">
+    <img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github&logoColor=white">
+  </a>
+  <a href="https://ko-fi.com/lucidfabrics">
+    <img alt="Support on Ko-fi" src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white">
+  </a>
+  <a href="https://buymeacoffee.com/lucidfabrics">
+    <img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black">
+  </a>
+</p>
+
+<p align="center">
   <img src="docs/menubar.png" width="320" alt="The DreoBar menu bar popover showing two fans with mode, speed and oscillation controls">
 </p>
 
