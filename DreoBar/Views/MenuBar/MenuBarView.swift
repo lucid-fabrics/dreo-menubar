@@ -63,8 +63,10 @@ struct MenuBarView: View {
             .keyboardShortcut("r")
 
             HoverRow(icon: "plus.circle", title: "Add a Device…") {
-                NSApp.activate(ignoringOtherApps: true)
+                // Order matters: activating before the window exists leaves
+                // it behind whatever app was frontmost.
                 openWindow(id: "add-device")
+                NSApp.activate(ignoringOtherApps: true)
             }
 
             HoverRow(icon: "gearshape", title: "Preferences…") {

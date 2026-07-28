@@ -176,6 +176,27 @@ struct InlineErrorBanner: View {
     }
 }
 
+/// Progress dots for a short linear flow. Communicates how much is left,
+/// which a spinner alone cannot.
+struct StepDots: View {
+    let total: Int
+    let current: Int
+
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<total, id: \.self) { index in
+                Capsule()
+                    .fill(index == current ? Color.accentColor : Theme.surfaceRaised(scheme))
+                    .frame(width: index == current ? 16 : 6, height: 6)
+            }
+        }
+        .animation(.snappy(duration: 0.25), value: current)
+        .accessibilityLabel("Step \(current + 1) of \(total)")
+    }
+}
+
 /// Centred placeholder for empty, busy and error states.
 struct StatusPlaceholder: View {
     var systemImage: String?

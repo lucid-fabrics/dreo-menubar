@@ -96,6 +96,9 @@ enum DreoBLEMessage {
 /// A decoded response/report notification from the fan.
 enum DreoBLENotification: Equatable {
     case wifiNetworks([DiscoveredWiFiNetwork])
+    /// Sent repeatedly while the fan works through joining; `stage` is its
+    /// internal state number, useful only as proof it is still progressing.
+    case connectProgress(stage: Int)
     case connectFinished(success: Bool)
     case error(code: Data)
     case other(type: String)
@@ -115,6 +118,8 @@ enum DreoBLENotification: Equatable {
         case "wl":
             let networks = payload?["l"]?.arrayValue?.compactMap(DiscoveredWiFiNetwork.init(cbor:)) ?? []
             self = .wifiNetworks(networks)
+        case "cw":
+            self = .connectProgress(stage: payload?["c"]?.intValue ?? 0)
         case "cf":
             self = .connectFinished(success: payload?["r"]?.boolValue ?? false)
         default:

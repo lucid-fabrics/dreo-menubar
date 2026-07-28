@@ -35,6 +35,10 @@ final class DreoBLEPairingService: NSObject, @unchecked Sendable {
     /// `"wl"` notification during that window feeds networks through here.
     private nonisolated(unsafe) var wifiScanHandler: ((DiscoveredWiFiNetwork) -> Void)?
 
+    /// Called each time the fan reports it has moved a step further through
+    /// joining, so the UI can show real movement instead of a blind spinner.
+    nonisolated(unsafe) var onJoinProgress: ((Int) -> Void)?
+
     /// Case-insensitive name prefix used to pick the right peripheral out
     /// of a scan; the fan's pairing-mode WiFi SoftAP uses the same "DREO"
     /// prefix, so the BLE advertisement is expected to match.
@@ -160,8 +164,22 @@ final class DreoBLEPairingService: NSObject, @unchecked Sendable {
 
     private func waitUntilPoweredOn() async throws {
         if centralManager.state == .poweredOn { return }
+        if let failure = Self.unavailability(for: centralManager.state) {
+            throw DreoBLEError.bluetoothUnavailable(failure)
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             poweredOnContinuation = continuation
+        }
+    }
+
+    /// `.unknown` and `.resetting` are transient states CoreBluetooth passes
+    /// through while starting up, so only the settled failures are reported.
+    private static func unavailability(for state: CBManagerState) -> DreoBLEError.BluetoothAvailability? {
+        switch state {
+        case .poweredOff: return .poweredOff
+        case .unauthorized: return .unauthorized
+        case .unsupported: return .unsupported
+        default: return nil
         }
     }
 
@@ -223,9 +241,13 @@ final class DreoBLEPairingService: NSObject, @unchecked Sendable {
 extension DreoBLEPairingService: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         Self.logger.debug("Central state: \(String(describing: central.state), privacy: .public)")
-        if central.state == .poweredOn, let continuation = poweredOnContinuation {
+        guard let continuation = poweredOnContinuation else { return }
+        if central.state == .poweredOn {
             poweredOnContinuation = nil
             continuation.resume()
+        } else if let failure = Self.unavailability(for: central.state) {
+            poweredOnContinuation = nil
+            continuation.resume(throwing: DreoBLEError.bluetoothUnavailable(failure))
         }
     }
 
@@ -336,6 +358,8 @@ extension DreoBLEPairingService: CBPeripheralDelegate {
         switch notification {
         case .wifiNetworks(let networks):
             networks.forEach { wifiScanHandler?($0) }
+        case .connectProgress(let stage):
+            onJoinProgress?(stage)
         case .connectFinished(let success):
             guard let continuation = connectResultContinuation else { return }
             connectResultContinuation = nil

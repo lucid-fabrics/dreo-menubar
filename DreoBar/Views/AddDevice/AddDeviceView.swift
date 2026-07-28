@@ -1,185 +1,279 @@
+import AppKit
 import SwiftUI
 
-/// Pairs a new fan onto WiFi over Bluetooth LE, reimplementing the
-/// official Dreo app's protocol (see `DreoBLEPairingService`). No manual
-/// WiFi-network-joining step needed, BLE replaces that entirely.
+/// Guided setup for a new fan, start to finish: put the fan into pairing
+/// mode, find it over Bluetooth, pick a network, hand over the password,
+/// watch it join.
+///
+/// The first screen matters most. Pairing only works while the fan is
+/// advertising, which it does for a short window after a physical button
+/// press, so the flow explains that and waits to be told the fan is ready
+/// rather than silently scanning and timing out.
 struct AddDeviceView: View {
-    private enum Step {
+    private enum Step: Equatable {
+        case prepare
         case connecting
-        case scanningNetworks
-        case pickNetwork([DiscoveredWiFiNetwork])
-        case enterPassword(DiscoveredWiFiNetwork)
-        case sending(DiscoveredWiFiNetwork)
-        case success
-        case failed(String)
+        case chooseNetwork([DiscoveredWiFiNetwork])
+        case password(DiscoveredWiFiNetwork)
+        case joining(DiscoveredWiFiNetwork)
+        case done
+        case failed(PairingFailure)
+
+        /// Position in the visible progress, or nil for terminal screens.
+        var dotIndex: Int? {
+            switch self {
+            case .prepare: 0
+            case .connecting: 1
+            case .chooseNetwork: 2
+            case .password, .joining: 3
+            case .done, .failed: nil
+            }
+        }
     }
 
     let appModel: AppModel
 
-    @State private var step: Step = .connecting
+    @Environment(\.dismiss) private var dismiss
+    @State private var step: Step = .prepare
     @State private var password = ""
+    @State private var revealPassword = false
+    @State private var hasStartedJoining = false
     @State private var bleService = DreoBLEPairingService()
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.roomy) {
             header
 
-            switch step {
-            case .connecting:
-                statusView(message: "Looking for a fan in pairing mode…")
-            case .scanningNetworks:
-                statusView(message: "Asking the fan what WiFi networks it can see…")
-            case .pickNetwork(let networks):
-                pickNetworkView(networks: networks)
-            case .enterPassword(let network):
-                enterPasswordView(network: network)
-            case .sending(let network):
-                statusView(message: "Sending WiFi credentials to \(network.ssid.isEmpty ? "the fan" : network.ssid)…")
-            case .success:
-                successView
-            case .failed(let message):
-                failedView(message: message)
-            }
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 0)
+
+            footer
         }
         .padding(Theme.Space.loose)
-        .frame(width: 420, height: 420, alignment: .top)
-        .task {
-            await connectAndScan()
-        }
-        .onDisappear {
-            bleService.disconnect()
-        }
+        .frame(width: 440, height: 470, alignment: .top)
+        .onAppear(perform: bringToFront)
+        .onDisappear { bleService.disconnect() }
     }
+
+    // MARK: - Chrome
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill")
-                .foregroundStyle(Color.accentColor)
-            Text("Add a Device")
+        HStack(alignment: .center, spacing: Theme.Space.snug) {
+            Text(title)
                 .font(.system(size: 15, weight: .semibold))
+            Spacer(minLength: Theme.Space.snug)
+            if let index = step.dotIndex {
+                StepDots(total: 4, current: index)
+            }
         }
     }
 
-    private func statusView(message: String) -> some View {
-        StatusPlaceholder(isBusy: true, message: message)
+    private var title: String {
+        switch step {
+        case .prepare: "Add a Device"
+        case .connecting: "Looking for your fan"
+        case .chooseNetwork: "Choose a network"
+        case .password(let network): network.ssid
+        case .joining: "Joining WiFi"
+        case .done: "All set"
+        case .failed(let failure): failure.title
+        }
     }
 
-    private func pickNetworkView(networks: [DiscoveredWiFiNetwork]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.snug) {
-            Text("Which network should the fan join?")
-                .font(Theme.Font.body)
-                .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var content: some View {
+        switch step {
+        case .prepare:
+            PairingInstructions()
+        case .connecting:
+            StatusPlaceholder(isBusy: true, message: "Searching for a fan in pairing mode nearby…")
+        case .chooseNetwork(let networks):
+            NetworkPicker(networks: networks) { network in
+                password = ""
+                step = .password(network)
+            }
+        case .password(let network):
+            passwordStep(network)
+        case .joining:
+            StatusPlaceholder(
+                isBusy: true,
+                message: hasStartedJoining
+                    ? "The fan is connecting to your network. This can take up to a minute."
+                    : "Sending the network details to your fan…"
+            )
+        case .done:
+            PairingSuccess()
+        case .failed(let failure):
+            failedStep(failure)
+        }
+    }
 
-            if networks.isEmpty {
-                InlineErrorBanner(message: "The fan didn't report any networks it can see. Try scanning again.")
-            } else {
-                ScrollView {
-                    VStack(spacing: 1) {
-                        ForEach(networks.sorted(by: { $0.rssi > $1.rssi })) { network in
-                            HoverRow(icon: signalIcon(for: network.rssi), title: network.ssid) {
-                                step = .enterPassword(network)
-                            }
-                        }
+    // MARK: - Steps
+
+    private func passwordStep(_ network: DiscoveredWiFiNetwork) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            Text("Enter the password for this network. It is sent straight to the fan.")
+                .font(Theme.Font.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: Theme.Space.tight) {
+                Group {
+                    if revealPassword {
+                        TextField("Network password", text: $password)
+                    } else {
+                        SecureField("Network password", text: $password)
                     }
                 }
-                .frame(height: 220)
-            }
-
-            Button("Scan Again") {
-                Task { await scanNetworks() }
-            }
-        }
-    }
-
-    /// The fan reports each network's signal, so show it rather than a flat
-    /// list: the one it hears best is the one most likely to work.
-    private func signalIcon(for rssi: Int) -> String {
-        switch rssi {
-        case (-60)...: return "wifi"
-        case (-75)..<(-60): return "wifi.exclamationmark"
-        default: return "wifi.slash"
-        }
-    }
-
-    private func enterPasswordView(network: DiscoveredWiFiNetwork) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.snug) {
-            HStack(spacing: Theme.Space.tight) {
-                Image(systemName: "wifi")
-                Text(network.ssid)
-                    .font(.system(size: 13, weight: .semibold))
-            }
-
-            SecureField("WiFi Password", text: $password)
                 .textFieldStyle(.roundedBorder)
+                .onSubmit { join(network) }
 
-            Button("Send to Fan") {
-                Task { await send(network: network) }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(password.isEmpty)
-
-            Button("Choose a Different Network") {
-                Task { await scanNetworks() }
+                Button {
+                    revealPassword.toggle()
+                } label: {
+                    Image(systemName: revealPassword ? "eye.slash" : "eye")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(revealPassword ? "Hide password" : "Show password")
             }
         }
     }
 
-    private var successView: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(.green)
-            Text("The fan accepted the credentials and is joining your WiFi.")
+    private func failedStep(_ failure: PairingFailure) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            Text(failure.detail)
                 .font(Theme.Font.body)
-                .multilineTextAlignment(.center)
-            Text("Give it a minute, then hit Refresh Devices in the menu bar.")
-                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 16)
-    }
+                .fixedSize(horizontal: false, vertical: true)
 
-    private func failedView(message: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            InlineErrorBanner(message: message)
-            Button("Try Again") {
-                Task { await connectAndScan() }
+            if case .openSettings(let url, let label) = failure.recovery {
+                Button(label) {
+                    if let settings = URL(string: url) { NSWorkspace.shared.open(settings) }
+                }
             }
         }
     }
 
-    private func connectAndScan() async {
-        step = .connecting
-        do {
-            try await bleService.connectToFan()
-            // Tell the fan which account to bind to before asking it to join
-            // WiFi; without this the fan refuses the join request.
-            if let session = await appModel.currentSession(), let userId = session.userId {
+    // MARK: - Footer
+
+    @ViewBuilder
+    private var footer: some View {
+        HStack(spacing: Theme.Space.snug) {
+            switch step {
+            case .prepare:
+                Button("Cancel") { dismiss() }
+                Spacer()
+                Button("The Light Is Blinking") { start() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+
+            case .connecting, .joining:
+                Button("Cancel") {
+                    bleService.disconnect()
+                    step = .prepare
+                }
+                Spacer()
+
+            case .chooseNetwork:
+                Button("Back") { step = .prepare }
+                Spacer()
+                Button("Scan Again") { Task { await scanNetworks() } }
+
+            case .password(let network):
+                Button("Back") { Task { await scanNetworks() } }
+                Spacer()
+                Button("Join Network") { join(network) }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(password.isEmpty)
+
+            case .done:
+                Spacer()
+                Button("Done") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+
+            case .failed(let failure):
+                Button("Close") { dismiss() }
+                Spacer()
+                switch failure.recovery {
+                case .retry, .openSettings:
+                    Button("Try Again") { step = .prepare }
+                        .buttonStyle(.borderedProminent)
+                case .chooseNetworkAgain:
+                    Button("Choose Network") { Task { await scanNetworks() } }
+                        .buttonStyle(.borderedProminent)
+                case .none:
+                    EmptyView()
+                }
+            }
+        }
+    }
+
+    // MARK: - Flow
+
+    /// A menu bar app has no Dock icon to click, so a newly opened setup
+    /// window can end up behind whatever app was in front. Raise it once it
+    /// actually exists.
+    private func bringToFront() {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows
+                .first { $0.title == "Add a Device" }?
+                .makeKeyAndOrderFront(nil)
+        }
+    }
+
+    private func start() {
+        Task {
+            step = .connecting
+            do {
+                // The fan has to be told which account it belongs to before
+                // it will accept a network, so refuse early if there is no
+                // session rather than failing deep in the flow.
+                guard let session = await appModel.currentSession(), let userId = session.userId else {
+                    step = .failed(.notSignedIn)
+                    return
+                }
+                try await bleService.connectToFan()
                 try await bleService.provisionAccount(userId: userId, deviceAPIHost: session.deviceAPIHost)
+                await scanNetworks()
+            } catch {
+                step = .failed(PairingFailure(error))
             }
-            await scanNetworks()
-        } catch {
-            step = .failed("Couldn't find a fan in pairing mode. Hold Oscillation for 5s and try again.")
         }
     }
 
     private func scanNetworks() async {
-        step = .scanningNetworks
-        let networks = await (try? bleService.scanWiFiNetworks()) ?? []
-        step = .pickNetwork(networks)
-    }
-
-    private func send(network: DiscoveredWiFiNetwork) async {
-        step = .sending(network)
+        step = .connecting
         do {
-            try await bleService.sendCredentials(network: network, password: password)
-            step = .success
+            let networks = try await bleService.scanWiFiNetworks()
+            step = .chooseNetwork(networks.sorted { $0.rssi > $1.rssi })
         } catch {
-            step = .failed("The fan rejected the credentials (\(error)). Double check the password and try again.")
+            step = .failed(PairingFailure(error))
         }
     }
+
+    private func join(_ network: DiscoveredWiFiNetwork) {
+        guard !password.isEmpty else { return }
+        hasStartedJoining = false
+        bleService.onJoinProgress = { _ in hasStartedJoining = true }
+        step = .joining(network)
+
+        Task {
+            do {
+                try await bleService.sendCredentials(network: network, password: password)
+                password = ""
+                step = .done
+                await appModel.refreshDevices()
+            } catch {
+                step = .failed(PairingFailure(error))
+            }
+            bleService.onJoinProgress = nil
+        }
+    }
+
 }
