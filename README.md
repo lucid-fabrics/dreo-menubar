@@ -188,14 +188,15 @@ Colours come from Dreo's own product photography, which sits almost entirely in 
 sky blue. Every accent pairing was checked for contrast rather than eyeballed, which is why light
 and dark use different blues: white text needs a deeper blue than dark text does.
 
-## Macro keys
+## Macro keys and other triggers
 
-A Corsair G-key, a Stream Deck button or a foot pedal cannot be recorded as a keyboard shortcut,
-here or anywhere. Their own software swallows the press and runs a macro, so nothing ever reaches
-this app as a keystroke to record.
+If you have a Corsair G-key, a Stream Deck button or a foot pedal, set it to **send a keystroke**
+rather than to launch an application. Macro software swallows the raw key and never passes it on,
+so nothing reaches this app to record, but every one of these tools can emit a normal combination
+instead. Assign the key something like Ctrl-Opt-2, then record that against a fan under More
+Options. From then on it behaves like any other shortcut.
 
-They can all open a URL though, which is the way in. Pick **Copy Trigger Link** from a fan's menu
-to get its serial, then use any of these:
+For scripting and automation, each control is also reachable by URL:
 
 ```bash
 open "dreobar://toggle?device=<serial>"                          # power
@@ -203,21 +204,9 @@ open "dreobar://set?device=<serial>&key=windlevel&value=9"       # exact speed
 open "dreobar://adjust?device=<serial>&key=windlevel&delta=1"    # one step faster
 ```
 
-`adjust` is the one you want on a key: a single button for "faster" beats twelve buttons for each
-speed, and it clamps to the range the fan itself publishes. `key` is any command from that
-device's schema, so `windtype`, `shakehorizon` and the rest work the same way.
-
-Without the `device` parameter, `toggle` hits whichever fan you used last, which is rarely what
-you want once you own two.
-
-Most macro software binds to an application rather than a URL, so there's a helper for that:
-
-```bash
-scripts/make-trigger-app.sh "Tower Faster" "dreobar://adjust?device=<serial>&key=windlevel&delta=1"
-```
-
-That drops an app in `~/Applications` which fires the URL and quits. Point the G-key at it with
-Launch Application.
+`Copy Trigger Link` in a fan's menu puts its URL on the clipboard. `adjust` clamps to the range
+the fan itself publishes, and `key` accepts any command from that device's schema, so `windtype`
+and `shakehorizon` work the same way. Without `device`, `toggle` hits whichever fan you used last.
 
 ## Things that will annoy you
 
