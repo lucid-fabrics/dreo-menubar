@@ -289,8 +289,11 @@ struct DeviceControlView: View {
 extension String {
     /// Schemas from the server carry raw localisation keys such as
     /// `device_control_mode_sleep`, while the bundled templates already hold
-    /// English. This tidies the former and leaves the latter untouched.
+    /// English. Keys are looked up in the vendor's own string table first, so
+    /// labels read the way the Dreo app words them, and anything unknown falls
+    /// back to tidying the key itself.
     var dreoTitleCased: String {
+        if let label = DeviceLabels.text(forKey: self) { return label }
         guard contains("_") else { return self }
         var words = split(separator: "_").map(String.init)
             .filter { !["device", "control", "fans", "base"].contains($0.lowercased()) }
