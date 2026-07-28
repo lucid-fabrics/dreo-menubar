@@ -86,7 +86,7 @@ struct DeviceControlView: View {
 
     private var iconTint: Color {
         guard device.isOnline else { return .secondary }
-        return device.isOn ? .accentColor : .secondary
+        return device.isOn ? Theme.accent : .secondary
     }
 
     private var header: some View {

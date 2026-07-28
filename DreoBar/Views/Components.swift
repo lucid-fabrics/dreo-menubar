@@ -24,11 +24,11 @@ struct SegmentedChips<Item: Identifiable & Equatable>: View {
                         .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
-                        .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.75))
+                        .foregroundStyle(isSelected ? Theme.onAccent : Color.primary.opacity(0.75))
                         .background {
                             if isSelected {
                                 Capsule(style: .continuous)
-                                    .fill(Color.accentColor)
+                                    .fill(Theme.accent)
                                     .matchedGeometryEffect(id: "selection", in: pill)
                             }
                         }
@@ -62,14 +62,17 @@ struct StepSlider: View {
                 Capsule().fill(Theme.surfaceRaised(scheme))
 
                 Capsule()
-                    .fill(Color.accentColor)
+                    .fill(Theme.accent)
                     .frame(width: max(10, width * progress))
 
                 HStack(spacing: 0) {
                     ForEach(range.lowerBound...range.upperBound, id: \.self) { step in
                         if step > range.lowerBound { Spacer(minLength: 0) }
                         Circle()
-                            .fill(Color.white.opacity(step <= value ? 0.5 : 0.18))
+                            // Ticks sit on the accent below the current step
+                            // and on the bare track above it, so each half
+                            // needs its own contrast.
+                            .fill(step <= value ? Theme.onAccent.opacity(0.4) : Color.primary.opacity(0.22))
                             .frame(width: 2, height: 2)
                     }
                 }
@@ -188,7 +191,7 @@ struct StepDots: View {
         HStack(spacing: 5) {
             ForEach(0..<total, id: \.self) { index in
                 Capsule()
-                    .fill(index == current ? Color.accentColor : Theme.surfaceRaised(scheme))
+                    .fill(index == current ? Theme.accent : Theme.surfaceRaised(scheme))
                     .frame(width: index == current ? 16 : 6, height: 6)
             }
         }

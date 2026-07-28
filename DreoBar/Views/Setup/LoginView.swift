@@ -11,11 +11,11 @@ struct LoginView: View {
         VStack(spacing: Theme.Space.roomy + 4) {
             ZStack {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.14))
+                    .fill(Theme.accent.opacity(0.14))
                     .frame(width: 52, height: 52)
                 Image(systemName: "fan.fill")
                     .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
             .padding(.top, 4)
 

@@ -30,9 +30,9 @@ struct PairingInstructions: View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Space.snug) {
             Text("\(number)")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 16, height: 16)
-                .background(Circle().fill(Color.accentColor.opacity(0.15)))
+                .background(Circle().fill(Theme.accent.opacity(0.15)))
             Text(text)
                 .font(Theme.Font.body)
                 .fixedSize(horizontal: false, vertical: true)
@@ -89,7 +89,7 @@ struct PairingSuccess: View {
             HStack(spacing: Theme.Space.snug) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 26))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Theme.success)
                 Text("Your fan is on WiFi and linked to your account.")
                     .font(Theme.Font.body)
                     .fixedSize(horizontal: false, vertical: true)

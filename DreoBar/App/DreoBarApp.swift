@@ -15,6 +15,7 @@ struct DreoBarApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuBarView(appModel: appModel)
+                .tint(Theme.accent)
         } label: {
             Image(systemName: appModel.menuBarSymbol)
         }
@@ -22,11 +23,13 @@ struct DreoBarApp: App {
 
         Window("Add a Device", id: "add-device") {
             AddDeviceView(appModel: appModel)
+                .tint(Theme.accent)
         }
         .windowResizability(.contentSize)
 
         Settings {
             SettingsView()
+                .tint(Theme.accent)
         }
     }
 }
