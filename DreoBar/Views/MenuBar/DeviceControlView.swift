@@ -62,6 +62,17 @@ struct DeviceControlView: View {
         }
     }
 
+    /// Puts this device's trigger URL on the clipboard.
+    ///
+    /// Macro keys never arrive as keystrokes, so a G-key or Stream Deck button
+    /// cannot be recorded as a shortcut. They can all open a URL though, which
+    /// is how they aim at this specific fan.
+    private func copyTriggerLink() {
+        let link = "dreobar://toggle?device=\(device.serialNumber)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(link, forType: .string)
+    }
+
     /// Runs as a real modal alert rather than a SwiftUI confirmation dialog.
     /// The menu bar popover closes as soon as it loses focus, and a dialog
     /// presented from inside it goes with it, so the confirmation vanished
@@ -137,7 +148,11 @@ struct DeviceControlView: View {
 
             Spacer(minLength: Theme.Space.tight)
 
-            DeviceOptionsMenu(deviceName: device.deviceName, onRemove: confirmRemoval)
+            DeviceOptionsMenu(
+                deviceName: device.deviceName,
+                onCopyTriggerLink: copyTriggerLink,
+                onRemove: confirmRemoval
+            )
 
             Toggle("Power", isOn: Binding(
                 get: { device.isOn },
@@ -328,10 +343,13 @@ extension String {
 /// undiscoverable: nothing on screen advertises that it exists.
 struct DeviceOptionsMenu: View {
     let deviceName: String
+    let onCopyTriggerLink: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
         Menu {
+            Button("Copy Trigger Link", action: onCopyTriggerLink)
+            Divider()
             Button("Remove Device…", role: .destructive, action: onRemove)
         } label: {
             Image(systemName: "ellipsis")

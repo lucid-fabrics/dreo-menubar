@@ -35,7 +35,8 @@ It grew a bit from there.
 
 - Power, speed, oscillation, mode and the fiddly per-device preferences like Child Lock
 - A global hotkey that toggles your last-used fan from anywhere
-- A `dreobar://toggle` URL, so Shortcuts or a Stream Deck or whatever can trigger it
+- A `dreobar://toggle` URL, so Shortcuts or a Stream Deck or whatever can trigger it, and
+  `dreobar://toggle?device=<serial>` to aim at one specific fan
 - **Pairs a brand new fan onto your WiFi over Bluetooth, with no phone involved**
 - Offline fans are shown as offline instead of pretending to work
 - Your Dreo password lives in the Keychain and nowhere else
@@ -186,6 +187,22 @@ expects.
 Colours come from Dreo's own product photography, which sits almost entirely in a narrow band of
 sky blue. Every accent pairing was checked for contrast rather than eyeballed, which is why light
 and dark use different blues: white text needs a deeper blue than dark text does.
+
+## Macro keys
+
+A Corsair G-key, a Stream Deck button or a foot pedal cannot be recorded as a keyboard shortcut,
+here or anywhere. Their own software swallows the press and runs a macro, so nothing ever reaches
+this app as a keystroke to record.
+
+They can all open a URL though, which is the way in. Pick **Copy Trigger Link** from a fan's menu
+and point the macro at that:
+
+```bash
+open "dreobar://toggle?device=<serial>"
+```
+
+Without the `device` parameter it toggles whichever fan you used last, which is rarely what you
+want once you own two.
 
 ## Things that will annoy you
 

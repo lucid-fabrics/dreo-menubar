@@ -39,11 +39,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
     }
 
+    /// Handles `dreobar://toggle`, and `dreobar://toggle?device=<serial>` for
+    /// a specific fan.
+    ///
+    /// The per-device form exists because macro keys cannot be recorded as
+    /// shortcuts: a Corsair G-key, a Stream Deck button or an Elgato pedal is
+    /// swallowed by its own software and never reaches this app as a
+    /// keystroke. Those tools can all launch a URL, so this is how they aim
+    /// at one fan instead of whichever was touched last.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let model = appModel else { return }
-        guard urls.contains(where: { $0.scheme == "dreobar" && $0.host == "toggle" }) else { return }
-        Task { @MainActor in
-            model.toggleLastSelectedDevicePower()
+
+        for url in urls where url.scheme == "dreobar" && url.host == "toggle" {
+            let serialNumber = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?
+                .first { $0.name == "device" }?
+                .value
+
+            Task { @MainActor in
+                if let serialNumber, !serialNumber.isEmpty {
+                    model.togglePower(serialNumber: serialNumber)
+                } else {
+                    model.toggleLastSelectedDevicePower()
+                }
+            }
         }
     }
 }
