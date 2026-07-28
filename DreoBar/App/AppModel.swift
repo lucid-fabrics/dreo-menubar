@@ -142,6 +142,36 @@ final class AppModel {
         togglePower(for: device)
     }
 
+    /// Sets one control on one device, used by URL triggers.
+    func setValue(_ value: DreoValue, forKey key: String, onSerialNumber serialNumber: String) {
+        guard let device = devices.first(where: { $0.serialNumber == serialNumber }),
+              device.isOnline else { return }
+        setValue(value, forKey: key, on: device)
+    }
+
+    /// Nudges a numeric control up or down, clamped to the range the device
+    /// itself publishes.
+    ///
+    /// Relative steps are what a single key wants: one button for "faster"
+    /// beats twelve buttons for each speed. The range comes from the device
+    /// schema, so this cannot push a value the hardware would reject.
+    func adjustValue(forKey key: String, by delta: Int, onSerialNumber serialNumber: String) {
+        guard let device = devices.first(where: { $0.serialNumber == serialNumber }),
+              device.isOnline else { return }
+
+        let values = (device.controlsConf?.control ?? [])
+            .flatMap { $0.items ?? [] }
+            .filter { $0.cmd == key }
+            .compactMap(\.value.intValue)
+
+        guard let low = values.min(), let high = values.max(), low < high else { return }
+        let current = device.state[key]?.intValue ?? low
+        let next = min(max(current + delta, low), high)
+        guard next != current else { return }
+
+        setValue(.int(next), forKey: key, on: device)
+    }
+
     /// Re-lists devices on the account. Picks up anything newly paired,
     /// whether through this app's own BLE provisioning or the official
     /// Dreo app.

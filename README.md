@@ -195,14 +195,29 @@ here or anywhere. Their own software swallows the press and runs a macro, so not
 this app as a keystroke to record.
 
 They can all open a URL though, which is the way in. Pick **Copy Trigger Link** from a fan's menu
-and point the macro at that:
+to get its serial, then use any of these:
 
 ```bash
-open "dreobar://toggle?device=<serial>"
+open "dreobar://toggle?device=<serial>"                          # power
+open "dreobar://set?device=<serial>&key=windlevel&value=9"       # exact speed
+open "dreobar://adjust?device=<serial>&key=windlevel&delta=1"    # one step faster
 ```
 
-Without the `device` parameter it toggles whichever fan you used last, which is rarely what you
-want once you own two.
+`adjust` is the one you want on a key: a single button for "faster" beats twelve buttons for each
+speed, and it clamps to the range the fan itself publishes. `key` is any command from that
+device's schema, so `windtype`, `shakehorizon` and the rest work the same way.
+
+Without the `device` parameter, `toggle` hits whichever fan you used last, which is rarely what
+you want once you own two.
+
+Most macro software binds to an application rather than a URL, so there's a helper for that:
+
+```bash
+scripts/make-trigger-app.sh "Tower Faster" "dreobar://adjust?device=<serial>&key=windlevel&delta=1"
+```
+
+That drops an app in `~/Applications` which fires the URL and quits. Point the G-key at it with
+Launch Application.
 
 ## Things that will annoy you
 

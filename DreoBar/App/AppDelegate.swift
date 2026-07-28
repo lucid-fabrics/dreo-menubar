@@ -49,20 +49,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// at one fan instead of whichever was touched last.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let model = appModel else { return }
+        for url in urls where url.scheme == "dreobar" {
+            handle(url, with: model)
+        }
+    }
 
-        for url in urls where url.scheme == "dreobar" && url.host == "toggle" {
-            let serialNumber = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                .queryItems?
-                .first { $0.name == "device" }?
-                .value
+    /// Routes one `dreobar://` URL.
+    ///
+    /// - `toggle` flips power, on `device` or on the last-used fan.
+    /// - `set` writes one control, e.g. `key=windlevel&value=9`.
+    /// - `adjust` nudges a numeric control, e.g. `key=windlevel&delta=-1`.
+    private func handle(_ url: URL, with model: AppModel) {
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(_ name: String) -> String? {
+            query.first { $0.name == name }?.value.flatMap { $0.isEmpty ? nil : $0 }
+        }
 
-            Task { @MainActor in
-                if let serialNumber, !serialNumber.isEmpty {
-                    model.togglePower(serialNumber: serialNumber)
+        let device = value("device")
+        let key = value("key")
+
+        Task { @MainActor in
+            switch url.host {
+            case "toggle":
+                if let device {
+                    model.togglePower(serialNumber: device)
                 } else {
                     model.toggleLastSelectedDevicePower()
                 }
+
+            case "set":
+                guard let device, let key, let raw = value("value") else { return }
+                model.setValue(Self.parse(raw), forKey: key, onSerialNumber: device)
+
+            case "adjust":
+                guard let device, let key, let delta = value("delta").flatMap(Int.init) else { return }
+                model.adjustValue(forKey: key, by: delta, onSerialNumber: device)
+
+            default:
+                break
             }
+        }
+    }
+
+    /// URLs carry everything as text, so a value has to be read back into the
+    /// type the device expects.
+    private static func parse(_ raw: String) -> DreoValue {
+        if let number = Int(raw) { return .int(number) }
+        switch raw.lowercased() {
+        case "true", "on", "yes": return .bool(true)
+        case "false", "off", "no": return .bool(false)
+        default: return .string(raw)
         }
     }
 }
