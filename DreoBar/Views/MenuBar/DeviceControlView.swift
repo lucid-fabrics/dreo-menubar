@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 import SwiftUI
 
 /// Renders one device from its `controlsConf`, rather than hardcoding
@@ -26,19 +27,18 @@ struct DeviceControlView: View {
                     .font(Theme.Font.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if sections.isEmpty && preferences.isEmpty {
-                Text("No controls published for this model. Power still works.")
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 VStack(alignment: .leading, spacing: Theme.Space.roomy) {
+                    if sections.isEmpty {
+                        Text("No controls published for this model. Power still works.")
+                            .font(Theme.Font.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     ForEach(sections) { section in
                         sectionView(for: section)
                     }
-                    if !preferences.isEmpty {
-                        preferencesSection
-                    }
+                    preferencesSection
                 }
                 // Nothing sent to an unreachable device can take effect, so
                 // its controls stop accepting input rather than silently
@@ -252,6 +252,19 @@ struct DeviceControlView: View {
                                 set: { setPreference(preference, to: $0) }
                             )
                         )
+                    }
+
+                    // Sits with the fan it controls rather than in a settings
+                    // window, so binding a key never means hunting for which
+                    // row belongs to which device.
+                    HStack(spacing: Theme.Space.tight) {
+                        Text("Shortcut")
+                            .font(Theme.Font.body)
+                        Spacer(minLength: Theme.Space.tight)
+                        KeyboardShortcuts.Recorder(
+                            for: .togglePower(deviceSerialNumber: device.serialNumber)
+                        )
+                        .controlSize(.small)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))

@@ -10,32 +10,12 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                if appModel.devices.isEmpty {
-                    Text("Your devices will appear here once they have loaded.")
-                        .font(Theme.Font.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(appModel.devices) { device in
-                        KeyboardShortcuts.Recorder(
-                            device.deviceName,
-                            name: .togglePower(deviceSerialNumber: device.serialNumber)
-                        )
-                    }
-                }
-            } header: {
-                Label("Per-device shortcuts", systemImage: "fan")
-            } footer: {
-                Text("Each fan gets its own key, so you can reach one directly without opening the menu.")
-                    .font(Theme.Font.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
                 KeyboardShortcuts.Recorder("Last-used device:", name: .toggleFanPower)
             } header: {
                 Label("Shortcut", systemImage: "keyboard")
             } footer: {
-                Text("Toggles whichever device you touched last. Useful if you mostly use one fan.")
+                Text("Toggles whichever device you touched last. Each fan can also have its own key, "
+                     + "under More Options on that fan in the menu.")
                     .font(Theme.Font.caption)
                     .foregroundStyle(.secondary)
             }
@@ -50,8 +30,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
-        .frame(minHeight: 340, maxHeight: 540)
+        .frame(width: 400, height: 260)
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
