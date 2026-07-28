@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Renders one device from its `controlsConf`, rather than hardcoding
@@ -10,7 +11,6 @@ struct DeviceControlView: View {
 
     @Environment(\.colorScheme) private var scheme
     @State private var showsPreferences = false
-    @State private var showsRemoveConfirmation = false
 
     private var sections: [ControlSection] { device.controlsConf?.control ?? [] }
     private var preferences: [ControlSection] {
@@ -58,23 +58,33 @@ struct DeviceControlView: View {
         // Kept out of the card body so a destructive action can't be hit by
         // mistake while reaching for a speed or mode control.
         .contextMenu {
-            Button("Remove \(device.deviceName)…", role: .destructive) {
-                showsRemoveConfirmation = true
-            }
+            Button("Remove \(device.deviceName)…", role: .destructive, action: confirmRemoval)
         }
-        .confirmationDialog(
-            "Remove \(device.deviceName)?",
-            isPresented: $showsRemoveConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Remove Device", role: .destructive) {
-                Task { await appModel.removeDevice(device) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This unlinks the fan from your Dreo account everywhere, not just on this Mac. "
-                 + "To use it again you would have to pair it from scratch.")
-        }
+    }
+
+    /// Runs as a real modal alert rather than a SwiftUI confirmation dialog.
+    /// The menu bar popover closes as soon as it loses focus, and a dialog
+    /// presented from inside it goes with it, so the confirmation vanished
+    /// the moment it was clicked. A window-level alert outlives the popover
+    /// and stays put until one of its buttons is chosen.
+    private func confirmRemoval() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Remove \(device.deviceName)?"
+        alert.informativeText = "This unlinks the fan from your Dreo account everywhere, not just on "
+            + "this Mac. To use it again you would have to pair it from scratch."
+        alert.addButton(withTitle: "Remove Device")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons[0].hasDestructiveAction = true
+        // Return picks Cancel, so leaning on the keyboard cannot delete a
+        // device by accident.
+        alert.buttons[0].keyEquivalent = ""
+        alert.buttons[1].keyEquivalent = "\r"
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Task { await appModel.removeDevice(device) }
     }
 
     // MARK: - Header
@@ -127,9 +137,7 @@ struct DeviceControlView: View {
 
             Spacer(minLength: Theme.Space.tight)
 
-            DeviceOptionsMenu(deviceName: device.deviceName) {
-                showsRemoveConfirmation = true
-            }
+            DeviceOptionsMenu(deviceName: device.deviceName, onRemove: confirmRemoval)
 
             Toggle("Power", isOn: Binding(
                 get: { device.isOn },
