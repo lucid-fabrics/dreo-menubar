@@ -219,6 +219,15 @@ struct AddDeviceView: View {
     /// window can end up behind whatever app was in front. Raise it once it
     /// actually exists.
     private func bringToFront() {
+        // macOS answers app activation by opening this window scene, so
+        // firing dreobar://toggle used to toggle the fan and raise the setup
+        // wizard at the same time. Only stay open if the menu actually asked.
+        guard appModel.hasRequestedPairing else {
+            dismiss()
+            return
+        }
+        appModel.hasRequestedPairing = false
+
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
             NSApp.windows

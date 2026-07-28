@@ -32,4 +32,5 @@ struct DreoBarApp: App {
                 .tint(Theme.accent)
         }
     }
+
 }

@@ -14,6 +14,11 @@ final class AppModel {
     private(set) var launchState: LaunchState = .loading
     private(set) var devices: [DreoDevice] = []
     private(set) var isRefreshingDevices = false
+
+    /// Set only when the user picks "Add a Device". macOS opens an app's
+    /// window scene simply because the app was activated, so the pairing
+    /// wizard needs a way to tell a real request from that.
+    var hasRequestedPairing = false
     var errorMessage: String?
 
     var settings: AppSettings = .default {
