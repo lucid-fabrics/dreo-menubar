@@ -32,11 +32,20 @@ struct ControlSection: Codable, Equatable, Identifiable, Sendable {
     let cmd: String?
     let items: [ControlItem]?
 
-    var id: String { rawId ?? type }
+    /// Preference toggles only. Some read inverted, e.g. `muteon` is true
+    /// when panel sound is *off*, so the switch has to be flipped to match
+    /// what the label says.
+    let reverse: Bool?
+    /// Values to send for on/off when the device uses ints rather than
+    /// booleans, e.g. `lightmode` where 0 means the display auto-offs.
+    let trueValue: DreoValue?
+    let falseValue: DreoValue?
+
+    var id: String { rawId ?? cmd ?? type }
 
     enum CodingKeys: String, CodingKey {
         case rawId = "id"
-        case type, title, cmd, items
+        case type, title, cmd, items, reverse, trueValue, falseValue
     }
 }
 

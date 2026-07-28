@@ -11,87 +11,73 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 0) {
             switch appModel.launchState {
             case .loading:
-                loadingState
+                StatusPlaceholder(isBusy: true, message: "Connecting to your devices…")
             case .needsLogin:
                 LoginView(appModel: appModel)
             case .ready:
-                deviceList
+                ready
             }
         }
-        .frame(width: 300)
+        .frame(width: Theme.Metric.popoverWidth)
     }
 
-    private var loadingState: some View {
-        VStack(spacing: 8) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Connecting…")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "fan.slash")
-                .font(.system(size: 20))
-                .foregroundStyle(.tertiary)
-            Text("No Dreo devices found")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-    }
-
-    private var deviceList: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private var ready: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
             if appModel.devices.isEmpty {
-                emptyState
+                StatusPlaceholder(
+                    systemImage: "fan.slash",
+                    message: "No Dreo devices on this account yet."
+                )
             } else {
-                ForEach(Array(appModel.devices.enumerated()), id: \.element.id) { index, device in
-                    DeviceControlView(appModel: appModel, device: device)
-                    if index < appModel.devices.count - 1 {
-                        Divider().padding(.horizontal, 14)
+                VStack(spacing: Theme.Space.snug) {
+                    ForEach(appModel.devices) { device in
+                        DeviceControlView(appModel: appModel, device: device)
                     }
                 }
+                .padding(.horizontal, Theme.Metric.gutter)
+                .padding(.top, Theme.Metric.gutter)
             }
 
             if let errorMessage = appModel.errorMessage {
                 InlineErrorBanner(message: errorMessage)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
+                    .padding(.horizontal, Theme.Metric.gutter)
             }
 
-            Divider().padding(.vertical, 6).padding(.horizontal, 8)
+            Divider()
+                .padding(.horizontal, Theme.Metric.gutter)
 
-            VStack(spacing: 2) {
-                HoverRow(icon: "arrow.clockwise", title: "Refresh Devices", isLoading: appModel.isRefreshingDevices) {
-                    Task { await appModel.refreshDevices() }
-                }
-                .keyboardShortcut("r")
-
-                HoverRow(icon: "plus.circle", title: "Add a Device…") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    openWindow(id: "add-device")
-                }
-
-                HoverRow(icon: "gearshape", title: "Preferences…") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    openSettings()
-                }
-                .keyboardShortcut(",")
-
-                HoverRow(icon: "power", title: "Quit DreoBar") {
-                    NSApp.terminate(nil)
-                }
-                .keyboardShortcut("q")
-            }
-            .padding(.horizontal, 6)
-            .padding(.bottom, 6)
+            footer
         }
-        .padding(.vertical, 8)
+        .padding(.bottom, Theme.Space.snug)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 1) {
+            HoverRow(
+                icon: "arrow.clockwise",
+                title: "Refresh Devices",
+                isLoading: appModel.isRefreshingDevices
+            ) {
+                Task { await appModel.refreshDevices() }
+            }
+            .keyboardShortcut("r")
+
+            HoverRow(icon: "plus.circle", title: "Add a Device…") {
+                NSApp.activate(ignoringOtherApps: true)
+                openWindow(id: "add-device")
+            }
+
+            HoverRow(icon: "gearshape", title: "Preferences…") {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+            }
+            .keyboardShortcut(",")
+
+            HoverRow(icon: "power", title: "Quit DreoBar") {
+                NSApp.terminate(nil)
+            }
+            .keyboardShortcut("q")
+        }
+        .padding(.horizontal, Theme.Space.tight)
     }
 }

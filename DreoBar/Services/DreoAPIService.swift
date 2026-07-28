@@ -48,12 +48,18 @@ actor DreoAPIService: DreoAPIServiceProtocol {
         guard envelope.code == 0, let list = envelope.data?.list else {
             throw DreoAPIError.apiError(code: envelope.code, message: envelope.msg ?? "device list failed")
         }
-        return list.map {
-            DreoDevice(
-                serialNumber: $0.serialNumber,
-                deviceName: $0.deviceName,
-                model: $0.model,
-                controlsConf: $0.controlsConf
+        return list.map { entry in
+            // Newer models send only a template name, so fall back to the
+            // bundled schema for that model.
+            var schema = entry.controlsConf
+            if schema == nil || schema?.isEmpty == true {
+                schema = DeviceTemplateCatalog.schema(forModel: entry.model) ?? schema
+            }
+            return DreoDevice(
+                serialNumber: entry.serialNumber,
+                deviceName: entry.deviceName,
+                model: entry.model,
+                controlsConf: schema
             )
         }
     }

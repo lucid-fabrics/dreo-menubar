@@ -119,15 +119,18 @@ final class DreoAPIServiceTests: XCTestCase {
                 let body = #"{"code":0,"msg":"OK","data":{"access_token":"tok","region":"NA"}}"#
                 return (Self.httpResponse(for: request), Data(body.utf8))
             }
-            // A freshly provisioned device reports a controlsConf carrying
-            // only "template". That must not discard the other device.
+            // SN2 sends a controlsConf carrying only "template", which is
+            // what a newer model returns. It must neither discard the other
+            // device nor be left uncontrollable.
             let body = #"""
             {"code":0,"msg":"OK","data":{"list":[
                 {"sn":"SN1","deviceName":"Tower Fan","model":"DR-HTF004S",
                  "controlsConf":{"control":[{"id":"110","type":"Speed","title":"speed",
                  "items":[{"text":"1","cmd":"windlevel","value":1}]}],"preference":[]}},
                 {"sn":"SN2","deviceName":"Air Circulator","model":"DR-HPF008S",
-                 "controlsConf":{"template":"someTemplate"}}
+                 "controlsConf":{"template":"someTemplate"}},
+                {"sn":"SN3","deviceName":"Mystery","model":"DR-NOT-A-REAL-MODEL",
+                 "controlsConf":{"template":"unknown"}}
             ]}}
             """#
             return (Self.httpResponse(for: request), Data(body.utf8))
@@ -137,9 +140,14 @@ final class DreoAPIServiceTests: XCTestCase {
         try await service.login(DreoCredentials(email: "user@example.com", password: "secret"))
         let devices = try await service.listDevices()
 
-        XCTAssertEqual(devices.map(\.serialNumber), ["SN1", "SN2"])
+        XCTAssertEqual(devices.map(\.serialNumber), ["SN1", "SN2", "SN3"])
+        // The server's own schema wins where it sent one.
         XCTAssertEqual(devices[0].controlsConf?.control.count, 1)
-        XCTAssertEqual(devices[1].controlsConf?.isEmpty, true)
+        // A schema-less known model is filled in from the bundled catalog.
+        XCTAssertEqual(devices[1].controlsConf?.isEmpty, false)
+        XCTAssertNotNil(devices[1].controlsConf?.control.first { $0.type == "Speed" })
+        // An unknown model stays empty rather than borrowing someone else's.
+        XCTAssertEqual(devices[2].controlsConf?.isEmpty, true)
     }
 
     func test_listDevices_dropsOnlyTheUnparseableDevice() async throws {

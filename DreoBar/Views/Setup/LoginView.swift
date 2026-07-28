@@ -8,7 +8,7 @@ struct LoginView: View {
     @State private var isSubmitting = false
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: Theme.Space.roomy + 4) {
             ZStack {
                 Circle()
                     .fill(Color.accentColor.opacity(0.14))
@@ -21,14 +21,14 @@ struct LoginView: View {
 
             VStack(spacing: 3) {
                 Text("Sign in to Dreo")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Control your fan without opening the Dreo app")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14.5, weight: .semibold))
+                Text("Control your fans without opening the Dreo app")
+                    .font(Theme.Font.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Space.tight) {
                 TextField("Email", text: $email)
                     .textContentType(.username)
                 SecureField("Password", text: $password)
@@ -54,8 +54,8 @@ struct LoginView: View {
             .buttonStyle(.borderedProminent)
             .disabled(email.isEmpty || password.isEmpty || isSubmitting)
         }
-        .padding(22)
-        .frame(width: 300)
+        .padding(Theme.Space.loose + 2)
+        .frame(width: Theme.Metric.popoverWidth)
     }
 
     private func submit() {

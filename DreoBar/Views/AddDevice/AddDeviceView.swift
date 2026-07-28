@@ -21,7 +21,7 @@ struct AddDeviceView: View {
     @State private var bleService = DreoBLEPairingService()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Space.roomy) {
             header
 
             switch step {
@@ -43,7 +43,7 @@ struct AddDeviceView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(20)
+        .padding(Theme.Space.loose)
         .frame(width: 420, height: 420, alignment: .top)
         .task {
             await connectAndScan()
@@ -63,31 +63,22 @@ struct AddDeviceView: View {
     }
 
     private func statusView(message: String) -> some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.small)
-            Text(message)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 24)
+        StatusPlaceholder(isBusy: true, message: message)
     }
 
     private func pickNetworkView(networks: [DiscoveredWiFiNetwork]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Which WiFi network should the fan join?")
-                .font(.system(size: 12.5))
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            Text("Which network should the fan join?")
+                .font(Theme.Font.body)
                 .foregroundStyle(.secondary)
 
             if networks.isEmpty {
-                InlineErrorBanner(message: "The fan didn't report any visible networks. Try again.")
+                InlineErrorBanner(message: "The fan didn't report any networks it can see. Try scanning again.")
             } else {
                 ScrollView {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 1) {
                         ForEach(networks.sorted(by: { $0.rssi > $1.rssi })) { network in
-                            HoverRow(icon: "wifi", title: network.ssid) {
+                            HoverRow(icon: signalIcon(for: network.rssi), title: network.ssid) {
                                 step = .enterPassword(network)
                             }
                         }
@@ -96,15 +87,25 @@ struct AddDeviceView: View {
                 .frame(height: 220)
             }
 
-            Button("Rescan") {
+            Button("Scan Again") {
                 Task { await scanNetworks() }
             }
         }
     }
 
+    /// The fan reports each network's signal, so show it rather than a flat
+    /// list: the one it hears best is the one most likely to work.
+    private func signalIcon(for rssi: Int) -> String {
+        switch rssi {
+        case (-60)...: return "wifi"
+        case (-75)..<(-60): return "wifi.exclamationmark"
+        default: return "wifi.slash"
+        }
+    }
+
     private func enterPasswordView(network: DiscoveredWiFiNetwork) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            HStack(spacing: Theme.Space.tight) {
                 Image(systemName: "wifi")
                 Text(network.ssid)
                     .font(.system(size: 13, weight: .semibold))
@@ -131,7 +132,7 @@ struct AddDeviceView: View {
                 .font(.system(size: 28))
                 .foregroundStyle(.green)
             Text("The fan accepted the credentials and is joining your WiFi.")
-                .font(.system(size: 12.5))
+                .font(Theme.Font.body)
                 .multilineTextAlignment(.center)
             Text("Give it a minute, then hit Refresh Devices in the menu bar.")
                 .font(.system(size: 11))

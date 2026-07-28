@@ -1,53 +1,80 @@
 import SwiftUI
 
-/// Renders a device's controls generically from its `controlsConf`, rather
-/// than hardcoding behavior per model. Speed/Mode/Oscillation are the three
-/// section types confirmed on the tower fan this app was built against;
-/// anything else falls back to a plain row of tappable chips.
+/// Renders one device from its `controlsConf`, rather than hardcoding
+/// behaviour per model. Speed, Mode and Oscillation get purpose-built
+/// controls; any other section with selectable values falls back to a chip
+/// row, so an unfamiliar product still gets something usable.
 struct DeviceControlView: View {
     let appModel: AppModel
     let device: DreoDevice
 
+    @Environment(\.colorScheme) private var scheme
+    @State private var showsPreferences = false
+
+    private var sections: [ControlSection] { device.controlsConf?.control ?? [] }
+    private var preferences: [ControlSection] {
+        (device.controlsConf?.preference ?? []).filter { $0.cmd != nil }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Theme.Space.roomy) {
             header
 
-            if let sections = device.controlsConf?.control, !sections.isEmpty {
+            if sections.isEmpty && preferences.isEmpty {
+                Text("No controls published for this model. Power still works.")
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
                 ForEach(sections) { section in
                     sectionView(for: section)
                 }
-            } else {
-                Text("No controls reported for this device yet. Power still works.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if !preferences.isEmpty {
+                    preferencesSection
+                }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(Theme.Metric.cardPadding)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Metric.cardRadius, style: .continuous)
+                .fill(Theme.surface(scheme))
+        )
+        .opacity(device.isOn ? 1 : 0.72)
+        .animation(.easeOut(duration: 0.18), value: device.isOn)
     }
 
+    // MARK: - Header
+
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Theme.Space.snug) {
             ZStack {
                 Circle()
-                    .fill(device.isOn ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.06))
-                    .frame(width: 32, height: 32)
+                    .fill(device.isOn ? Color.accentColor.opacity(0.18) : Theme.surfaceRaised(scheme))
+                    .frame(width: 30, height: 30)
                 Image(systemName: device.isOn ? "fan.fill" : "fan")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(device.isOn ? Color.accentColor : Color.secondary)
+                    .symbolEffect(.variableColor.iterative, isActive: device.isOn)
             }
-            .animation(.easeOut(duration: 0.15), value: device.isOn)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.deviceName)
-                    .font(.system(size: 13, weight: .semibold))
-                Text(device.model)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.tertiary)
+                    .font(Theme.Font.deviceName)
+                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(device.model)
+                    if let temperature = device.state["temperature"]?.intValue {
+                        Text("·")
+                        Text("\(temperature)°")
+                            .monospacedDigit()
+                    }
+                }
+                .font(Theme.Font.deviceMeta)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.Space.tight)
 
             Toggle("Power", isOn: Binding(
                 get: { device.isOn },
@@ -55,59 +82,47 @@ struct DeviceControlView: View {
             ))
             .labelsHidden()
             .toggleStyle(.switch)
+            .controlSize(.small)
         }
     }
+
+    // MARK: - Sections
 
     @ViewBuilder
     private func sectionView(for section: ControlSection) -> some View {
         switch section.type {
         case "Speed":
-            speedSlider(for: section)
-        case "Mode":
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(icon: "list.bullet", title: (section.title ?? section.type).dreoTitleCased)
-                chipRow(items: section.items ?? [])
-            }
+            speedControl(for: section)
         case "Oscillation":
-            oscillationControls(for: section)
+            oscillationControl(for: section)
         default:
-            fallbackChips(for: section)
+            chipSection(for: section)
         }
     }
 
     @ViewBuilder
-    private func speedSlider(for section: ControlSection) -> some View {
+    private func speedControl(for section: ControlSection) -> some View {
         if let items = section.items, items.count >= 2,
-           let low = items.first?.value.intValue,
-           let high = items.last?.value.intValue,
-           let cmd = items.first?.cmd {
-            let current = device.state[cmd]?.intValue ?? low
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(
-                    icon: "wind",
-                    title: (section.title ?? section.type).dreoTitleCased,
-                    trailing: "\(current)"
-                )
-                Slider(
-                    value: Binding(
-                        get: { Double(current) },
-                        set: { appModel.setValue(.int(Int($0)), forKey: cmd, on: device) }
-                    ),
-                    in: Double(low)...Double(high),
-                    step: 1
-                )
+           let low = items.map(\.value).compactMap(\.intValue).min(),
+           let high = items.map(\.value).compactMap(\.intValue).max(),
+           low < high, let cmd = items.first?.cmd {
+            let current = min(max(device.state[cmd]?.intValue ?? low, low), high)
+            VStack(alignment: .leading, spacing: Theme.Space.tight) {
+                SectionLabel(title: sectionTitle(section), trailing: "\(current)")
+                StepSlider(range: low...high, value: current) { step in
+                    appModel.setValue(.int(step), forKey: cmd, on: device)
+                }
             }
         }
     }
 
     @ViewBuilder
-    private func oscillationControls(for section: ControlSection) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                SectionHeader(icon: "arrow.left.and.right", title: (section.title ?? section.type).dreoTitleCased)
+    private func oscillationControl(for section: ControlSection) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.tight) {
+            HStack(spacing: Theme.Space.tight) {
+                SectionLabel(title: sectionTitle(section))
                 if let cmd = section.cmd {
-                    Spacer()
-                    Toggle("Oscillation", isOn: Binding(
+                    Toggle("", isOn: Binding(
                         get: { device.state[cmd]?.boolValue ?? false },
                         set: { appModel.setValue(.bool($0), forKey: cmd, on: device) }
                     ))
@@ -123,39 +138,99 @@ struct DeviceControlView: View {
     }
 
     @ViewBuilder
-    private func chipRow(items: [ControlItem]) -> some View {
-        if !items.isEmpty {
-            let selectedId = items.first(where: { device.state[$0.cmd] == $0.value })?.id ?? items[0].id
-            HStack(spacing: 6) {
-                ForEach(items) { item in
-                    CapsuleChip(
-                        title: item.text.dreoTitleCased,
-                        isSelected: item.id == selectedId,
-                        action: { appModel.setValue(item.value, forKey: item.cmd, on: device) }
-                    )
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func fallbackChips(for section: ControlSection) -> some View {
+    private func chipSection(for section: ControlSection) -> some View {
         if let items = section.items, !items.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(icon: "slider.horizontal.3", title: (section.title ?? section.type).dreoTitleCased)
+            VStack(alignment: .leading, spacing: Theme.Space.tight) {
+                SectionLabel(title: sectionTitle(section))
                 chipRow(items: items)
             }
         }
     }
+
+    private func chipRow(items: [ControlItem]) -> some View {
+        let selected = items.first { device.state[$0.cmd] == $0.value }?.id
+        return SegmentedChips(
+            items: items,
+            selection: selected,
+            label: { $0.text.dreoTitleCased },
+            action: { appModel.setValue($0.value, forKey: $0.cmd, on: device) }
+        )
+    }
+
+    // MARK: - Preferences
+
+    private var preferencesSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            Button {
+                showsPreferences.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(showsPreferences ? "Fewer options" : "More options")
+                        .font(Theme.Font.sectionLabel)
+                        .tracking(0.7)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .rotationEffect(.degrees(showsPreferences ? 0 : -90))
+                    Spacer(minLength: 0)
+                }
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if showsPreferences {
+                VStack(spacing: Theme.Space.snug) {
+                    ForEach(preferences) { preference in
+                        ToggleRow(
+                            title: sectionTitle(preference),
+                            isOn: Binding(
+                                get: { isPreferenceOn(preference) },
+                                set: { setPreference(preference, to: $0) }
+                            )
+                        )
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.snappy(duration: 0.2), value: showsPreferences)
+    }
+
+    /// Some preferences read inverted (`muteon` is true when panel sound is
+    /// off) and some use ints instead of booleans, so both are normalised
+    /// to what the label actually claims.
+    private func isPreferenceOn(_ section: ControlSection) -> Bool {
+        guard let cmd = section.cmd, let raw = device.state[cmd] else { return false }
+        let enabled = section.trueValue.map { raw == $0 } ?? (raw.boolValue ?? false)
+        return (section.reverse ?? false) ? !enabled : enabled
+    }
+
+    private func setPreference(_ section: ControlSection, to newValue: Bool) {
+        guard let cmd = section.cmd else { return }
+        let target = (section.reverse ?? false) ? !newValue : newValue
+        let value: DreoValue
+        if let onValue = section.trueValue, let offValue = section.falseValue {
+            value = target ? onValue : offValue
+        } else {
+            value = .bool(target)
+        }
+        appModel.setValue(value, forKey: cmd, on: device)
+    }
+
+    private func sectionTitle(_ section: ControlSection) -> String {
+        (section.title ?? section.type).dreoTitleCased
+    }
 }
 
-private extension String {
-    /// Dreo's `title`/`text` fields are raw localization keys like
-    /// `device_control_mode_sleep`. We don't have their string table, so
-    /// this is a light heuristic to make them readable instead of raw.
+extension String {
+    /// Schemas from the server carry raw localisation keys such as
+    /// `device_control_mode_sleep`, while the bundled templates already hold
+    /// English. This tidies the former and leaves the latter untouched.
     var dreoTitleCased: String {
+        guard contains("_") else { return self }
         var words = split(separator: "_").map(String.init)
-            .filter { !["device", "control", "fans"].contains($0.lowercased()) }
+            .filter { !["device", "control", "fans", "base"].contains($0.lowercased()) }
         if words.count > 1, words.first?.lowercased() == "mode" {
             words.removeFirst()
         }

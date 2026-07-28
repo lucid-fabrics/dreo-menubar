@@ -9,9 +9,11 @@ hardware itself.
 
 ## Features
 
-- Power, speed, oscillation and mode control for every device on your account
+- Power, speed, oscillation, mode and per-device preferences for everything on your account
 - Controls render from each device's server-supplied `controlsConf` schema, so new Dreo product
   types work without code changes
+- Ships control layouts for 84 models, covering newer products the API declines to describe
+  (see [Device templates](#device-templates))
 - Global hotkey to toggle the last-used device, works while the app is in the background
 - `dreobar://toggle` URL scheme, so other automation tools can trigger it
 - **Add a new fan to your WiFi over Bluetooth**, without the phone app
@@ -57,6 +59,23 @@ as I can tell the BLE half has not been published anywhere else.
 - Device state arrives under `data.mixed`, where each value is either a raw scalar or a
   `{"state": ..., "timestamp": ...}` wrapper. Some fields (`timeron`, `timeroff`) nest an object
   in `state`, so decoding is done key by key: one unrepresentable field must not discard the rest.
+
+### Device templates
+
+Older products ship a full `controlsConf` in the device-list response. Newer ones send only
+`{"template": "<model>"}` and keep the real layout inside the official app, so the API alone
+leaves them with nothing to render. A device in that state used to break decoding outright and
+take the whole account's device list down with it.
+
+`DreoBar/Resources/DeviceTemplates.json` closes the gap: it is the vendor app's own bundled
+`app_config.json`, reduced to the control and preference sections, with its localisation keys
+already resolved to English and reshaped into the same `ControlSchema` the server sends. Both
+paths therefore render through identical code. The server's schema always wins where it sends
+one; the bundle is consulted only when it does not, and an unknown model is left empty rather
+than borrowing another model's layout.
+
+Sections the app has no widget for, such as the 2D directional pad some circulators use for
+oscillation angle, are deliberately dropped rather than rendered as empty headers.
 
 ### Bluetooth LE provisioning
 
