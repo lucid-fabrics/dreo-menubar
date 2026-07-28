@@ -32,19 +32,21 @@ struct DeviceControlView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                ForEach(sections) { section in
-                    sectionView(for: section)
+                VStack(alignment: .leading, spacing: Theme.Space.roomy) {
+                    ForEach(sections) { section in
+                        sectionView(for: section)
+                    }
+                    if !preferences.isEmpty {
+                        preferencesSection
+                    }
                 }
-                if !preferences.isEmpty {
-                    preferencesSection
-                }
+                // Nothing sent to an unreachable device can take effect, so
+                // its controls stop accepting input rather than silently
+                // dropping commands. The header stays live so an offline
+                // device can still be managed and removed.
+                .disabled(!device.isOnline)
             }
         }
-        // Nothing sent to an unreachable device can take effect, so its
-        // controls stop accepting input rather than silently dropping
-        // commands. Scoped to the card's contents, not the card, so removing
-        // an offline device stays possible.
-        .disabled(!device.isOnline)
         .padding(Theme.Metric.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: Theme.Metric.cardRadius, style: .continuous)
@@ -124,6 +126,10 @@ struct DeviceControlView: View {
             }
 
             Spacer(minLength: Theme.Space.tight)
+
+            DeviceOptionsMenu(deviceName: device.deviceName) {
+                showsRemoveConfirmation = true
+            }
 
             Toggle("Power", isOn: Binding(
                 get: { device.isOn },
@@ -285,5 +291,29 @@ extension String {
         }
         if words.isEmpty { words = [self] }
         return words.map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+    }
+}
+
+/// Per-device actions behind a visible button. A right-click only menu is
+/// undiscoverable: nothing on screen advertises that it exists.
+struct DeviceOptionsMenu: View {
+    let deviceName: String
+    let onRemove: () -> Void
+
+    var body: some View {
+        Menu {
+            Button("Remove Device…", role: .destructive, action: onRemove)
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 22, height: 20)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Device options")
+        .accessibilityLabel("Options for \(deviceName)")
     }
 }
