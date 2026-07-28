@@ -34,7 +34,7 @@ You need macOS 14 or later and Xcode. The `.xcodeproj` is generated rather than 
 
 ```bash
 brew install xcodegen
-git clone https://github.com/wmehanna/dreo-menubar.git
+git clone https://github.com/lucid-fabrics/dreo-menubar.git
 cd dreo-menubar
 xcodegen generate
 open DreoBar.xcodeproj
