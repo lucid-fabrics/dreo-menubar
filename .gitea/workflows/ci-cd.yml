@@ -1,0 +1,127 @@
+# Windbar CI/CD.
+#
+#   ci ──> cd-appstore ──> cd-github-source
+#
+# ci runs on every PR and push. cd-appstore only runs on a push to main, and only
+# if ci passed. cd-github-source only runs if the App Store upload succeeded, so
+# GitHub only ever shows code that actually shipped.
+#
+# NO BINARY IS EVER PUBLISHED TO GITHUB. GitHub receives source and README only.
+# The .pkg exists solely inside the runner workspace and is uploaded to Apple.
+#
+# Everything runs on [hackintosh-ios], the one macOS builder (Proxmox VM 102,
+# <build-vm>). beeside's iOS pipeline shares it, so concurrent runs queue.
+#
+# Job-level `if` uses plain comparisons only. Gitea 1.27's scheduler panics on
+# failure()/cancelled()/always() at job level and leaves the job stuck "waiting" -
+# step-level `if: always()` is fine, which is why the notify steps use it.
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+  NO_COLOR: "1"
+  CI: "true"
+
+jobs:
+  ci:
+    name: 'CI · build + test'
+    runs-on: [hackintosh-ios]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test
+        run: |
+          set -eo pipefail
+          export RBENV_ROOT="$HOME/.rbenv"
+          export RBENV_VERSION="3.3.11"
+          export PATH="$RBENV_ROOT/shims:$RBENV_ROOT/bin:$HOME/.local/xcodegen/bin:$PATH"
+          bundle install --quiet
+          bundle exec fastlane mac build_check
+
+  cd-appstore:
+    name: 'CD · App Store Connect'
+    needs: [ci]
+    if: github.event_name == 'push'
+    runs-on: [hackintosh-ios]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build, sign and upload
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          # Monotonic and unique per run. ASC reports a stale "latest build" while a
+          # previous one is still processing, so the build number never comes from Apple.
+          CI_PIPELINE_NUMBER: ${{ github.run_number }}
+        run: |
+          set -eo pipefail
+          export RBENV_ROOT="$HOME/.rbenv"
+          export RBENV_VERSION="3.3.11"
+          export PATH="$RBENV_ROOT/shims:$RBENV_ROOT/bin:$HOME/.local/xcodegen/bin:$PATH"
+
+          # Long silent stretches during archive/upload make the runner look hung.
+          ( while true; do echo "... building $(date -u +%H:%M:%S) ..."; sleep 30; done ) & HB=$!
+          trap 'kill $HB 2>/dev/null' EXIT
+
+          bundle install --quiet
+          bundle exec fastlane mac release
+
+      - name: Notify Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] || exit 0
+          if [ "${{ job.status }}" = "success" ]; then TG="✅ uploaded"; else TG="❌ failed"; fi
+          MSG=$(printf '🌀 <b>Windbar CD -> App Store Connect</b> - %s\n\n🔖 <code>%s</code>\n🔗 %s' \
+            "$TG" "${GITHUB_SHA:0:7}" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          curl -s --max-time 30 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}&parse_mode=HTML&disable_web_page_preview=true" \
+            --data-urlencode "text=$MSG" || true
+
+  cd-github-source:
+    name: 'CD · publish source to GitHub'
+    needs: [ci, cd-appstore]
+    if: github.event_name == 'push'
+    runs-on: [hackintosh-ios]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push source to GitHub
+        env:
+          # "GITHUB_TOKEN" is a Gitea-reserved secret name, so the real PAT lives
+          # under GH_MIRROR_TOKEN.
+          GH_PUSH_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
+          GH_REPO: lucid-fabrics/dreo-menubar
+        run: |
+          set -eo pipefail
+          [ -n "$GH_PUSH_TOKEN" ] || { echo "GH_MIRROR_TOKEN not set"; exit 1; }
+
+          # Refuse to publish if a build artifact ever entered git. GitHub gets
+          # source and README only; binaries are an App Store concern.
+          if git ls-files | grep -qiE '\.(dmg|pkg|ipa|app|xcarchive)(/|$)'; then
+            echo "Refusing to publish: binary artifacts are tracked in git"
+            git ls-files | grep -iE '\.(dmg|pkg|ipa|app|xcarchive)(/|$)'
+            exit 1
+          fi
+
+          git config user.name  "windbar-ci"
+          git config user.email "ci@lucidfabrics.local"
+          git remote remove github 2>/dev/null || true
+          git remote add github "https://x-access-token:${GH_PUSH_TOKEN}@github.com/${GH_REPO}.git"
+          git push github "HEAD:refs/heads/main"
+          echo "=== published $(git rev-parse --short HEAD) to github.com/${GH_REPO} ==="

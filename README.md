@@ -1,7 +1,7 @@
-# DreoBar
+# Windbar
 
-A little macOS menu bar app for controlling [Dreo](https://www.dreo.com) fans, and along the way,
-the first public write-up of how Dreo's Bluetooth pairing actually works.
+A little macOS menu bar app for controlling [Dreo](https://www.dreo.com) smart fans, and along the
+way, the first public write-up of how Dreo's Bluetooth pairing actually works.
 
 <p align="center">
   <a href="https://github.com/sponsors/lucid-fabrics">
@@ -16,7 +16,7 @@ the first public write-up of how Dreo's Bluetooth pairing actually works.
 </p>
 
 <p align="center">
-  <img src="docs/menubar.png" width="320" alt="The DreoBar menu bar popover showing two fans with mode, speed and oscillation controls">
+  <img src="docs/menubar.png" width="320" alt="The Windbar menu bar popover showing two fans with mode, speed and oscillation controls">
 </p>
 
 ## Why this exists
@@ -35,13 +35,27 @@ It grew a bit from there.
 
 - Power, speed, oscillation, mode and the fiddly per-device preferences like Child Lock
 - A global hotkey that toggles your last-used fan from anywhere
-- A `dreobar://toggle` URL, so Shortcuts or a Stream Deck or whatever can trigger it, and
-  `dreobar://toggle?device=<serial>` to aim at one specific fan
+- A `windbar://toggle` URL, so Shortcuts or a Stream Deck or whatever can trigger it, and
+  `windbar://toggle?device=<serial>` to aim at one specific fan
 - **Pairs a brand new fan onto your WiFi over Bluetooth, with no phone involved**
 - Offline fans are shown as offline instead of pretending to work
 - Your Dreo password lives in the Keychain and nowhere else
 
-## Getting it running
+## Getting it
+
+Windbar ships through the Mac App Store. Needs macOS 14 or later.
+
+> The App Store listing is not live yet. Until it is, build from source with the steps below.
+
+Windbar is an independent project. It is not made by, endorsed by, or affiliated with Dreo. It
+simply works with Dreo smart fans.
+
+One catch worth knowing before you try: **you need a Dreo account with an actual password.**
+If you signed up with "Continue with Google" or "Sign in with Apple", this won't work, because
+the login endpoint only accepts `grant_type=email-password`. Nothing I can do about that from
+the outside.
+
+## Building from source
 
 You need macOS 14 or later and Xcode. The `.xcodeproj` is generated rather than committed, so:
 
@@ -50,15 +64,10 @@ brew install xcodegen
 git clone https://github.com/lucid-fabrics/dreo-menubar.git
 cd dreo-menubar
 xcodegen generate
-open DreoBar.xcodeproj
+open Windbar.xcodeproj
 ```
 
 Press Cmd-R. The fan icon appears in the menu bar and there's no Dock icon.
-
-One catch worth knowing before you try: **you need a Dreo account with an actual password.**
-If you signed up with "Continue with Google" or "Sign in with Apple", this won't work, because
-the login endpoint only accepts `grant_type=email-password`. Nothing I can do about that from
-the outside.
 
 ## How it works
 
@@ -92,7 +101,7 @@ their UI in the app binary rather than from the server, so the API alone leaves 
 switch and nothing else.
 
 The fix was to go get that template. It's in `app_config.json` inside the Android app, keyed by
-model, in the same shape the server uses for older devices. So `DreoBar/Resources/DeviceTemplates.json`
+model, in the same shape the server uses for older devices. So `Windbar/Resources/DeviceTemplates.json`
 is that file, cut down to just the controls, with the localisation keys resolved to English. 84
 models, 40 KB. The server's own schema always wins where it sends one; the bundle only fills gaps,
 and an unknown model is left blank rather than borrowing another model's buttons.
@@ -167,7 +176,7 @@ wasted a day "fixing" it if I'd trusted the reasoning instead of printing the nu
 ## The code
 
 ```
-DreoBar/
+Windbar/
 ├── App/           AppModel, the single source of truth. Entry point.
 ├── Models/        Data types, the CBOR codec, BLE message builders
 ├── Services/      REST client, WebSocket client, BLE pairing
@@ -208,9 +217,9 @@ Options. From then on it behaves like any other shortcut.
 For scripting and automation, each control is also reachable by URL:
 
 ```bash
-open "dreobar://toggle?device=<serial>"                          # power
-open "dreobar://set?device=<serial>&key=windlevel&value=9"       # exact speed
-open "dreobar://adjust?device=<serial>&key=windlevel&delta=1"    # one step faster
+open "windbar://toggle?device=<serial>"                          # power
+open "windbar://set?device=<serial>&key=windlevel&value=9"       # exact speed
+open "windbar://adjust?device=<serial>&key=windlevel&delta=1"    # one step faster
 ```
 
 `Copy Trigger Link` in a fan's menu puts its URL on the clipboard. `adjust` clamps to the range
@@ -235,7 +244,7 @@ ioreg -c IOHIDDevice -r -d 1 | grep -i virtual  # is a virtual keyboard actually
 An entry stuck on something like `terminating for upgrade` instead of `activated enabled`, or no
 virtual device in the second command at all, means the driver never finished restarting. A reboot
 is what actually clears it, reopening the macro app's settings does not. After rebooting, test the
-same combination typed on the real keyboard first to confirm DreoBar's side is fine, then test the
+same combination typed on the real keyboard first to confirm Windbar's side is fine, then test the
 macro key itself.
 
 ## Things that will annoy you

@@ -1,6 +1,6 @@
 # Contributing
 
-Notes for anyone working on DreoBar, including future me.
+Notes for anyone working on Windbar, including future me.
 
 ## Setup
 
@@ -11,7 +11,7 @@ brew install xcodegen
 git clone git@github.com:lucid-fabrics/dreo-menubar.git
 cd dreo-menubar
 xcodegen generate
-open DreoBar.xcodeproj
+open Windbar.xcodeproj
 ```
 
 Press Cmd-R. The app appears in the menu bar, not the Dock. If the project fails to open or looks
@@ -22,10 +22,10 @@ stale after a pull, run `xcodegen generate` again.
 | Task | Command |
 |------|---------|
 | Regenerate the project | `xcodegen generate` |
-| Build | `xcodebuild build -project DreoBar.xcodeproj -scheme DreoBar -configuration Debug` |
-| Test | `xcodebuild test -project DreoBar.xcodeproj -scheme DreoBar -configuration Debug` |
-| One test class | `xcodebuild test -project DreoBar.xcodeproj -scheme DreoBar -only-testing DreoBarTests/AppModelTests` |
-| Lint | `swiftlint lint DreoBar DreoBarTests` |
+| Build | `xcodebuild build -project Windbar.xcodeproj -scheme Windbar -configuration Debug` |
+| Test | `xcodebuild test -project Windbar.xcodeproj -scheme Windbar -configuration Debug` |
+| One test class | `xcodebuild test -project Windbar.xcodeproj -scheme Windbar -only-testing WindbarTests/AppModelTests` |
+| Lint | `swiftlint lint Windbar WindbarTestsTests` |
 | Build and relaunch | `scripts/demo.sh` |
 
 Check Release as well as Debug before shipping. Whole-module optimisation surfaces warnings Debug
@@ -34,7 +34,7 @@ hides, and it has caught real problems here more than once.
 ## Layout
 
 ```
-DreoBar/
+Windbar/
 ├── App/           AppModel (single source of truth), entry point
 ├── Models/        Data types, BLE/ (CBOR codec, message builders), API/, Errors/
 ├── Services/      REST, WebSocket and BLE clients, Protocols/
@@ -94,6 +94,6 @@ depends on it, which is why `CBORValue.map` holds pairs rather than a dictionary
 
 ## Security
 
-Credentials live in the Keychain (service `com.dreobar.credentials`) and are never written to disk
+Credentials live in the Keychain (service `com.lucidfabrics.windbar.credentials`) and are never written to disk
 or logged. Do not commit `*.p12`, `*.mobileprovision`, real credentials, `xcuserdata/`,
 `DerivedData/` or `build/`. Test fixtures use placeholder networks and passwords; keep it that way.

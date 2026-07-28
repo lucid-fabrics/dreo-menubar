@@ -1,0 +1,158 @@
+# Windbar - macOS release automation.
+#
+# Distribution is the Mac App Store, so signing uses the Apple Distribution
+# certificate plus a Mac App Store provisioning profile. There is deliberately no
+# Developer ID certificate and no notarization: Developer ID can only be created by
+# the Apple account holder through the web portal, and the App Store path does not
+# need it.
+#
+# SIGNING MODEL (differs from beeside on purpose)
+#
+# beeside uses fastlane match, which clones an encrypted certs repo every run and
+# rebuilds a keychain. That machinery exists because its runner is shared with
+# several apps and its certs rotate. Windbar does not need it: the CI Mac already
+# holds both identities in PERSISTENT keychains under ~/gitea-runner/, so a run only
+# has to UNLOCK them.
+#
+#   ci-signing.keychain-db          Apple Distribution         (shared, beeside owns it)
+#   windbar-signing.keychain-db     3rd Party Mac Developer Installer  (ours)
+#
+# Both are already on the user keychain search list. This avoids `security import`
+# and `security set-key-partition-list` at build time entirely, which matters because
+# on macOS 26 the security daemon asynchronously SIGKILLs any process that calls
+# set-key-partition-list. See beeside's Fastfile for the scar tissue.
+#
+# It also means we never run match's certificate prune, which revokes older
+# Distribution certs and would break beeside, lucidpal and medclear on this team.
+
+default_platform(:mac)
+
+APP_IDENTIFIER   = 'com.lucidfabrics.windbar'
+TEAM_ID          = 'KRPUAN3FFA'
+SCHEME           = 'Windbar'
+PROJECT          = 'Windbar.xcodeproj'
+PROFILE_NAME     = 'Windbar MAS'
+
+KEYCHAINS = {
+  "#{ENV['HOME']}/gitea-runner/ci-signing.keychain-db"      => '***REDACTED-KEYCHAIN-PASSWORD***',
+  "#{ENV['HOME']}/gitea-runner/windbar-signing.keychain-db" => '***REDACTED-KEYCHAIN-PASSWORD***',
+}.freeze
+
+platform :mac do
+  # ── helpers ────────────────────────────────────────────────────────────────
+
+  # The .xcodeproj is generated, never committed, so every lane regenerates it.
+  private_lane :generate_project do
+    xcodegen = [
+      "#{ENV['HOME']}/.local/xcodegen/bin/xcodegen",
+      "#{ENV['HOME']}/.local/bin/xcodegen",
+      'xcodegen',
+    ].find { |p| system("command -v #{p.shellescape} >/dev/null 2>&1") }
+
+    unless xcodegen
+      # ~/.local/bin is root-owned on the CI Mac, so install into ~/.local, which is not.
+      UI.message 'XcodeGen missing, installing into ~/.local'
+      sh("set -e; mkdir -p /tmp/xg && cd /tmp/xg && " \
+         "curl -sSL -o xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip && " \
+         "unzip -oq xcodegen.zip && rm -rf $HOME/.local/xcodegen && mv xcodegen $HOME/.local/xcodegen")
+      xcodegen = "#{ENV['HOME']}/.local/xcodegen/bin/xcodegen"
+    end
+
+    sh("cd #{File.expand_path('..', __dir__).shellescape} && #{xcodegen.shellescape} generate")
+  end
+
+  # Unlock, do not import. See the signing model note at the top of this file.
+  private_lane :unlock_signing_keychains do
+    KEYCHAINS.each do |path, pass|
+      UI.user_error!("Signing keychain missing: #{path}. Reprovision the CI Mac.") unless File.exist?(path)
+      sh("security unlock-keychain -p #{pass.shellescape} #{path.shellescape}")
+    end
+    identities = sh('security find-identity -v', log: false)
+    UI.user_error!('Apple Distribution identity not found') unless identities.include?('Apple Distribution')
+    UI.user_error!('Mac Installer identity not found')      unless identities.include?('3rd Party Mac Developer Installer')
+  end
+
+  private_lane :asc_api_key do
+    app_store_connect_api_key(
+      key_id:                ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
+      issuer_id:             ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
+      key_content:           ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT'),
+      is_key_content_base64: false,
+      in_house:              false,
+    )
+  end
+
+  # ── public lanes ───────────────────────────────────────────────────────────
+
+  desc 'PR gate: build and run the unit tests. No signing, no upload.'
+  lane :build_check do
+    generate_project
+    run_tests(
+      project:     PROJECT,
+      scheme:      SCHEME,
+      destination: 'platform=macOS',
+      # Ad-hoc signing keeps the gate independent of certificates and keychains,
+      # so a PR from anywhere can be tested.
+      xcargs: 'CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" ' \
+              'PROVISIONING_PROFILE_SPECIFIER=""',
+    )
+  end
+
+  desc 'Build, sign and upload a build to App Store Connect. Does not submit for review.'
+  lane :release do
+    generate_project
+    unlock_signing_keychains
+
+    # ASC reports a stale "latest build" while a previous one is still processing,
+    # so the build number comes from the pipeline counter instead of from Apple.
+    build_number = ENV['CI_PIPELINE_NUMBER'] || Time.now.to_i.to_s
+    version      = File.read(File.expand_path('../project.yml', __dir__))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+    UI.user_error!('Could not read MARKETING_VERSION from project.yml') if version.to_s.empty?
+    UI.important("Windbar #{version} (#{build_number})")
+
+    # Release-config signing lives in project.yml on the app target. Setting
+    # PROVISIONING_PROFILE_SPECIFIER here would also hit the SwiftPM targets, and
+    # KeyboardShortcuts fails with "does not support provisioning profiles".
+    build_mac_app(
+      project:       PROJECT,
+      scheme:        SCHEME,
+      configuration: 'Release',
+      export_method: 'app-store',
+      output_directory: 'build',
+      output_name:      'Windbar',
+      xcargs: "DEVELOPMENT_TEAM=#{TEAM_ID} " \
+              "MARKETING_VERSION=#{version} " \
+              "CURRENT_PROJECT_VERSION=#{build_number}",
+      export_options: {
+        method:                       'app-store-connect',
+        teamID:                       TEAM_ID,
+        signingStyle:                 'manual',
+        signingCertificate:           'Apple Distribution',
+        installerSigningCertificate:  '3rd Party Mac Developer Installer',
+        provisioningProfiles:         { APP_IDENTIFIER => PROFILE_NAME },
+        uploadSymbols:                true,
+      },
+    )
+
+    pkg = lane_context[SharedValues::PKG_OUTPUT_PATH] || 'build/Windbar.pkg'
+    UI.user_error!("No .pkg produced at #{pkg}") unless File.exist?(pkg)
+    UI.success("Signed installer: #{pkg}")
+
+    upload_to_app_store(
+      api_key:                        asc_api_key,
+      pkg:                            pkg,
+      app_identifier:                 APP_IDENTIFIER,
+      platform:                       'osx',
+      # Metadata, screenshots and submission stay manual. A merge to main ships a
+      # build to App Store Connect; a human decides when it goes to review.
+      skip_metadata:                  true,
+      skip_screenshots:               true,
+      skip_app_version_update:        true,
+      submit_for_review:              false,
+      precheck_include_in_app_purchases: false,
+      run_precheck_before_submit:     false,
+    )
+
+    UI.success("Uploaded Windbar #{version} (#{build_number}) to App Store Connect")
+  end
+end
