@@ -185,6 +185,22 @@ and dark use different blues: white text needs a deeper blue than dark text does
 - Deleting a device really deletes it, from the account, everywhere. There's a confirmation, and
   Return picks Cancel on purpose
 
+## Support
+
+This project is free and open source, built and maintained in spare time. If it saves you time, consider supporting it:
+
+<p align="center">
+  <a href="https://github.com/sponsors/lucid-fabrics">
+    <img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github&logoColor=white">
+  </a>
+  <a href="https://ko-fi.com/lucidfabrics">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi">
+  </a>
+  <a href="https://buymeacoffee.com/lucidfabrics">
+    <img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black">
+  </a>
+</p>
+
 ## Credit
 
 The cloud side was much easier to work out because
