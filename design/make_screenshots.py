@@ -43,14 +43,14 @@ CAPTIONS = [
     ("01", "One click. Fan on.",
            "Every fan you own, living in the menu bar."),
     ("02", "Or never click at all.",
-           "One keystroke reaches your fan from any app, full screen or not."),
+           "Give each fan its own key. Bedroom on one, office on another, "
+           "or drive them from Shortcuts and Stream Deck."),
     ("03", "Set up a new fan.\nNo phone needed.",
-           "Your Mac talks to it over Bluetooth and puts it on your WiFi."),
-    ("04", "One key per room.",
-           "Bedroom on one shortcut, office on another. Or drive them from\n"
-           "Shortcuts, Stream Deck, or any macro key."),
-    ("05", "Your password never leaves your Mac.",
-           "Stored in the Keychain. No account, no tracking, no analytics."),
+           "Your Mac talks to it over Bluetooth and puts it straight "
+           "onto your WiFi."),
+    ("04", "Your password stays\non your Mac.",
+           "Kept in the Keychain and sent only to Dreo. No account with us, "
+           "no tracking, no analytics."),
 ]
 
 
@@ -111,7 +111,9 @@ def paste_popover(img, shot, anchor_x):
     s = shot.resize((int(shot.width * scale), int(shot.height * scale)), Image.LANCZOS)
 
     x = int(min(max(anchor_x - s.width / 2, W * 0.60), W - s.width - W * 0.05))
-    y = 96
+    # A tall popover hangs from the menu bar the way it really does. A short
+    # window (Settings) centres instead, or the frame goes bottom-heavy.
+    y = 96 if s.height > H * 0.55 else int((H - s.height) / 2)
     sh = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(sh).rounded_rectangle([x + 10, y + 22, x + s.width + 10, y + s.height + 22],
                                          radius=28, fill=(0, 0, 0, 150))

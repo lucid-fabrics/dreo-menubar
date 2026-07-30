@@ -191,10 +191,9 @@ platform :mac do
       # to main pushes the text along with the build. Edits made by hand in App
       # Store Connect WILL be overwritten: change the files, not the website.
       skip_metadata:                  false,
-      # Screenshots are the one thing that cannot be generated here: the reviewer
-      # needs to see the app driving a real fan. Add them under
-      # fastlane/screenshots/en-US/ and flip this to false.
-      skip_screenshots:               true,
+      # Rendered from the real UI with fixture devices by
+      # design/render_screenshots.sh, so they regenerate rather than rot.
+      skip_screenshots:               false,
       skip_app_version_update:        false,
       # Submission stays a human decision. A merge ships a build and its metadata;
       # someone still has to press Submit.
@@ -254,7 +253,7 @@ platform :mac do
       platform:                       'osx',
       app_version:                    version,
       skip_binary_upload:             true,
-      skip_screenshots:               true,
+      skip_screenshots:               false,
       skip_metadata:                  false,
       skip_app_version_update:        false,
       submit_for_review:              false,

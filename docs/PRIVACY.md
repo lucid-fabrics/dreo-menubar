@@ -18,7 +18,7 @@ no "us" to send it to: there is no Windbar server.
 |---|---|---|
 | Your Dreo email and password | macOS Keychain | To sign in to Dreo's service on your behalf |
 | Your Dreo access token | macOS Keychain | To stay signed in between launches |
-| Your fan list, nicknames and last-used fan | App preferences on your Mac | To draw the menu and support the global hotkey |
+| Your fan list and last-used fan | App preferences on your Mac | To draw the menu and support the global hotkey |
 | Your chosen keyboard shortcuts | App preferences on your Mac | To trigger fans from the keyboard |
 
 All of it stays on your Mac. Windbar is sandboxed by macOS, so it can only read and write its own

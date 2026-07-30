@@ -15,6 +15,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## Mac
 
+### mac restore_signing
+
+```sh
+[bundle exec] fastlane mac restore_signing
+```
+
+Rebuild the signing keychains on a fresh build machine. Recovery only, not CI.
+
 ### mac build_check
 
 ```sh
