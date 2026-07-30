@@ -187,18 +187,30 @@ platform :mac do
 
   desc 'Report which submission requirements are still outstanding.'
   lane :submission_status do
-    md = File.expand_path('metadata', __dir__)
-    missing = []
-    Dir.glob("#{md}/**/*.txt").sort.each do |f|
-      missing << File.basename(f) if File.read(f).include?('FILL ME IN')
-    end
-    shots = Dir.glob(File.expand_path('screenshots/**/*.{png,jpg,jpeg}', __dir__))
+    md      = File.expand_path('metadata', __dir__)
+    pending = File.expand_path('review_information.pending', __dir__)
+    shots   = Dir.glob(File.expand_path('screenshots/**/*.{png,jpg,jpeg}', __dir__))
+
+    placeholders = Dir.glob("#{md}/**/*.txt").sort
+                      .select { |f| File.read(f).include?('FILL ME IN') }
+                      .map { |f| File.basename(f) }
 
     UI.important 'Windbar submission readiness'
-    UI.message "  metadata files needing input : #{missing.empty? ? 'none' : missing.join(', ')}"
-    UI.message "  screenshots present          : #{shots.count} (App Store requires at least 1)"
-    UI.message '  set by hand in App Store Connect (no API): age rating, App Privacy answers'
-    UI.user_error!('Not ready to submit') unless missing.empty? && !shots.empty?
-    UI.success 'Metadata and screenshots look complete'
+    UI.message "  metadata placeholders : #{placeholders.empty? ? 'none' : placeholders.join(', ')}"
+    UI.message "  screenshots           : #{shots.count} found (App Store requires at least 1)"
+    if Dir.exist?(pending)
+      UI.message '  app review contact    : NOT ACTIVE (fastlane/review_information.pending)'
+      UI.message '                          see that folder README, it needs a demo Dreo account'
+    else
+      UI.message '  app review contact    : active'
+    end
+    UI.message '  by hand in ASC only   : App Privacy answers (age rating is already set to 4+)'
+
+    blockers = []
+    blockers << 'screenshots' if shots.empty?
+    blockers << 'review information' if Dir.exist?(pending)
+    blockers.concat(placeholders)
+    UI.user_error!("Not ready to submit: #{blockers.join(', ')}") unless blockers.empty?
+    UI.success 'Ready to submit'
   end
 end
