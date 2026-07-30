@@ -60,6 +60,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          SIGNING_KEYCHAIN_PASSWORD_SHARED: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD_SHARED }}
+          SIGNING_KEYCHAIN_PASSWORD_WINDBAR: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD_WINDBAR }}
           # App Review contact + demo Dreo account. Secrets, not files: this repo is
           # published to GitHub, and demo_password is a live password.
           ASC_REVIEW_FIRST_NAME: ${{ secrets.ASC_REVIEW_FIRST_NAME }}
@@ -168,6 +170,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          SIGNING_KEYCHAIN_PASSWORD_SHARED: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD_SHARED }}
+          SIGNING_KEYCHAIN_PASSWORD_WINDBAR: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD_WINDBAR }}
           GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
           GH_REPO: lucid-fabrics/dreo-menubar
           CI_PIPELINE_NUMBER: ${{ github.run_number }}

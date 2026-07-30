@@ -82,13 +82,18 @@ Job status codes in `action_run_job`: 1 success, 2 failure, 3 cancelled, 4 skipp
 Two identities, in **persistent** keychains on the build machine. CI only *unlocks* them; it never
 imports certificates at build time.
 
-| Keychain | Holds |
-|---|---|
-| `~/gitea-runner/ci-signing.keychain-db` | Apple Distribution (beeside owns this file) |
-| `~/gitea-runner/windbar-signing.keychain-db` | 3rd Party Mac Developer Installer, Developer ID Application |
+| Keychain | Unlock password from | Holds |
+|---|---|---|
+| `~/gitea-runner/ci-signing.keychain-db` | `SIGNING_KEYCHAIN_PASSWORD_SHARED` | Apple Distribution (beeside owns this file) |
+| `~/gitea-runner/windbar-signing.keychain-db` | `SIGNING_KEYCHAIN_PASSWORD_WINDBAR` | 3rd Party Mac Developer Installer, Developer ID Application |
 
-Their unlock passwords are in the macOS Keychain on the maintainer's machine, and in the
-team password store. **They are deliberately not written here: this file is public.**
+Both are Gitea repo secrets, read by `unlock_signing_keychains`. **Never write either value
+into this file or the Fastfile: both are published to GitHub.** They were, until 2026-07-30;
+the Windbar one has been rotated since, and the `security unlock-keychain` calls now run with
+`log: false` so the value cannot reach a job log either.
+
+> The shared keychain's password is still the pre-rotation value, because beeside's Fastfile
+> hardcodes the same string in a different repo. Rotating it means changing both at once.
 
 Both must be unlocked: the `.app` is signed from the first, the `.pkg` from the second.
 

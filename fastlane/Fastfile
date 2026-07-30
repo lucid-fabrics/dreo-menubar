@@ -33,9 +33,12 @@ SCHEME           = 'Windbar'
 PROJECT          = 'Windbar.xcodeproj'
 PROFILE_NAME     = 'Windbar MAS'
 
+# Unlock passwords come from the environment, never from this file. It is
+# published to github.com/lucid-fabrics/dreo-menubar, so a literal here is a
+# password on the open internet - which it was until 2026-07-30.
 KEYCHAINS = {
-  "#{ENV['HOME']}/gitea-runner/ci-signing.keychain-db"      => '***REDACTED-KEYCHAIN-PASSWORD***',
-  "#{ENV['HOME']}/gitea-runner/windbar-signing.keychain-db" => '***REDACTED-KEYCHAIN-PASSWORD***',
+  "#{ENV['HOME']}/gitea-runner/ci-signing.keychain-db"      => 'SIGNING_KEYCHAIN_PASSWORD_SHARED',
+  "#{ENV['HOME']}/gitea-runner/windbar-signing.keychain-db" => 'SIGNING_KEYCHAIN_PASSWORD_WINDBAR',
 }.freeze
 
 # App Review wants a contact human and a working demo Dreo account. That is a real
@@ -122,9 +125,12 @@ platform :mac do
 
   # Unlock, do not import. See the signing model note at the top of this file.
   private_lane :unlock_signing_keychains do
-    KEYCHAINS.each do |path, pass|
+    KEYCHAINS.each do |path, env_var|
       UI.user_error!("Signing keychain missing: #{path}. Reprovision the CI Mac.") unless File.exist?(path)
-      sh("security unlock-keychain -p #{pass.shellescape} #{path.shellescape}")
+      pass = ENV[env_var].to_s
+      UI.user_error!("#{env_var} is not set. It is a Gitea secret, see RUNBOOK.") if pass.empty?
+      # log: false, or the password lands in the job output.
+      sh("security unlock-keychain -p #{pass.shellescape} #{path.shellescape}", log: false)
     end
     identities = sh('security find-identity -v', log: false)
     UI.user_error!('Apple Distribution identity not found') unless identities.include?('Apple Distribution')
@@ -152,15 +158,16 @@ platform :mac do
     end
 
     kc_path = "#{ENV['HOME']}/gitea-runner/windbar-signing.keychain-db"
-    kc_pass = '***REDACTED-KEYCHAIN-PASSWORD***'
+    kc_pass = ENV['SIGNING_KEYCHAIN_PASSWORD_WINDBAR'].to_s
+    UI.user_error!('SIGNING_KEYCHAIN_PASSWORD_WINDBAR is not set') if kc_pass.empty?
     kc_name = 'windbar-signing.keychain'
 
     unless File.exist?(kc_path)
       FileUtils.mkdir_p(File.dirname(kc_path))
-      sh("security create-keychain -p #{kc_pass.shellescape} #{kc_path.shellescape}")
+      sh("security create-keychain -p #{kc_pass.shellescape} #{kc_path.shellescape}", log: false)
       sh("security set-keychain-settings -lut 21600 #{kc_path.shellescape}")
     end
-    sh("security unlock-keychain -p #{kc_pass.shellescape} #{kc_path.shellescape}")
+    sh("security unlock-keychain -p #{kc_pass.shellescape} #{kc_path.shellescape}", log: false)
 
     # Reads the `windbar` orphan branch (see Matchfile). readonly so a recovery run
     # can never mint a certificate and never revoke one belonging to another app.
