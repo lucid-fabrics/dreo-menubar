@@ -4,29 +4,33 @@ Windbar puts your smart fans in the macOS menu bar. Click the icon, your fans ar
 
 WHAT YOU CAN DO
 
-• Power, speed, oscillation and mode, from the menu bar
-• A global keyboard shortcut that toggles your last-used fan from anywhere
-• A shortcut per fan, so one key hits the bedroom and another hits the office
+• Power, speed, oscillation and mode, right from the menu bar
+• One keystroke toggles your last-used fan, from any app, even full screen
+• A separate key per fan, so one hits the bedroom and another hits the office
 • The fiddly per-device settings too, like Child Lock and display brightness
-• Pair a brand new fan onto your WiFi over Bluetooth, with no phone involved
-• Offline fans are shown as offline, instead of pretending to work
+• Set up a brand new fan over Bluetooth, with no phone involved
+• A fan that is offline is shown as offline, rather than pretending to work
 
 BUILT FOR A KEYBOARD
 
 Every control is reachable from a URL, so Shortcuts, Stream Deck, Keyboard Maestro, a foot pedal or any macro key can drive your fans. Copy a fan's trigger link straight from its menu.
 
-THE CONTROLS DRAW THEMSELVES
+IT FITS YOUR FAN, NOT A GENERIC ONE
 
-Windbar reads what each fan reports it can do and builds the interface from that. A tower fan and an air circulator both work without model-specific code, and newer models that ship their layout in the vendor app are covered by a bundled description of 84 models.
+Windbar asks each fan what it can do and builds the controls to match, so a tower fan and an air circulator each get their own real options instead of a lowest common denominator. Newer models that keep their layout in the vendor app are covered too, with 84 of them described inside the app.
+
+YOUR PASSWORD STAYS ON YOUR MAC
+
+Your Dreo password lives in the macOS Keychain and is sent to nobody but Dreo. There is no Windbar account, no analytics, no telemetry and no ads. The app is sandboxed by macOS, and the complete source is published openly, so anything claimed here can be checked rather than taken on trust.
 
 NO DOCK ICON, NO WINDOW
 
-It lives in the menu bar and nowhere else. It is sandboxed, it stores your password in the macOS Keychain, and it contains no analytics, no telemetry and no ads.
+It lives in the menu bar and nowhere else.
 
-WORKS WITH DREO SMART FANS
+BEFORE YOU BUY
 
-Windbar is an independent project. It is not made by, endorsed by, or affiliated with Dreo. You need an existing Dreo account, and that account must have a real password: if you signed up with "Continue with Google" or "Sign in with Apple", the sign-in this app relies on will not work.
+Windbar works with Dreo smart fans and needs an existing Dreo account. That account must have a real password: if you signed up using "Continue with Google" or "Sign in with Apple", the sign-in this app depends on will not work.
+
+Windbar is an independent project. It is not made by, endorsed by, or affiliated with Dreo.
 
 Requires macOS 14 or later.
-
-Free and open source. The full source, including the first public write-up of how Dreo's Bluetooth pairing actually works, is at github.com/lucid-fabrics/dreo-menubar

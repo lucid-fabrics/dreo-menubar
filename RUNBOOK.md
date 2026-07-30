@@ -133,3 +133,16 @@ Keyword research method and measured data: `design/ASO.md`. Icon generator: `des
   value *and* defeats Gitea's log masking. That leaked a live token into a job log once.
 - macOS App Store profiles live at `profiles/appstore/AppStore_*.provisionprofile` in match storage,
   not `profiles/macappstore/MacAppStore_*`.
+- **`deliver` APPENDS screenshots, it does not replace them.** Two `push_metadata` runs left ten
+  screenshots on the listing, including the superseded ones, while reporting
+  "Successfully uploaded all screenshots". Always verify the count afterwards:
+
+  ```bash
+  ./design/verify_screenshots.sh
+  ```
+
+  And when cleaning up, **do not trust the screenshot-set listing**. It is cached and keeps
+  returning rows that are already deleted, so a naive delete loop spins forever re-deleting ghosts
+  and the count never moves. Confirm each screenshot with
+  `GET /v1/appScreenshots/{id}` individually; a 404 means it is genuinely gone. That is what the
+  verify script does.
