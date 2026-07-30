@@ -1,1 +1,1 @@
-smart,wifi,bluetooth,hotkey,shortcut,home,remote,tower,circulator,oscillating,air,pairing
+shortcuts,breeze,bluetooth,switch,summer,devices,wifi,home,remote,iot,gadget,desk,toggle,smart
