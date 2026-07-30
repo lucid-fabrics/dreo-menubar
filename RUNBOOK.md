@@ -156,6 +156,17 @@ Keyword research method and measured data: `design/ASO.md`. Icon generator: `des
   `You must provide a value for the attribute 'contactPhone'`. Hence all six or nothing.
 - Uploading a build and **selecting** it for a version are different operations. `release` calls
   `attach_latest_build` for this; without it a version sits there unsubmittable with no warning.
+- **Rotating a signing keychain password needs the build VM rebooted.** `security
+  set-keychain-password` over ssh rewrites the file, and ssh can immediately unlock it with the new
+  password - but the GUI login session where the runners live keeps the old keychain open, and from
+  there `security unlock-keychain` then fails for **every** password, new and old, with the
+  misleading `The user name or passphrase you entered is not correct` (exit 51). Same file, same
+  inode. Killing and relaunching the runner does not help, and `killall securityd` as `cicd` is a
+  no-op because it is root-owned. `sudo shutdown -r now` fixes it; auto-login is on and both runners
+  come back by themselves. Verify with a `workflow_dispatch` before assuming the secret is wrong.
+- **`workflow_dispatch` on a branch publishes that branch to GitHub.** `cd-github-source` pushes
+  `HEAD:refs/heads/main`, so dispatching a debug branch put debug commits on the public repo and it
+  took a force push to undo. Dispatch on `main` only.
 - Gitea rejects any secret name starting with `GITHUB_`.
 - **Never set a Gitea secret with a here-string (`<<<`).** It appends a newline, which corrupts the
   value *and* defeats Gitea's log masking. That leaked a live token into a job log once.
