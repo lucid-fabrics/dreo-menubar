@@ -1,0 +1,17 @@
+Windbar is a menu bar client for Dreo smart fans (third-party WiFi/Bluetooth hardware).
+
+IMPORTANT FOR TESTING: this app controls physical hardware. Without a Dreo fan bound to the
+demo account, the app will sign in successfully and then show an empty fan list, which is the
+correct behaviour and not a bug.
+
+A demo Dreo account with a fan already bound to it is provided below. A screen recording
+showing the app controlling a real fan is attached / available at the URL in this note.
+
+The app has no account system of its own. It signs in to Dreo's service with the credentials
+you enter and stores them in the macOS Keychain. It collects no data and contains no analytics.
+
+Notes on capabilities:
+- Bluetooth is used only to provision a new fan onto WiFi during pairing.
+- The global keyboard shortcut uses standard Carbon hotkey registration and needs no
+  Accessibility permission.
+- The app is sandboxed and has no Dock icon (LSUIElement), it appears only in the menu bar.

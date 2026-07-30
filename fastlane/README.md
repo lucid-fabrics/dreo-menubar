@@ -1,0 +1,56 @@
+fastlane documentation
+----
+
+# Installation
+
+Make sure you have the latest version of the Xcode command line tools installed:
+
+```sh
+xcode-select --install
+```
+
+For _fastlane_ installation instructions, see [Installing _fastlane_](https://docs.fastlane.tools/#installing-fastlane)
+
+# Available Actions
+
+## Mac
+
+### mac build_check
+
+```sh
+[bundle exec] fastlane mac build_check
+```
+
+PR gate: build and run the unit tests. No signing, no upload.
+
+### mac release
+
+```sh
+[bundle exec] fastlane mac release
+```
+
+Build, sign and upload a build to App Store Connect. Does not submit for review.
+
+### mac push_metadata
+
+```sh
+[bundle exec] fastlane mac push_metadata
+```
+
+Push the store listing text only. No build, no submission.
+
+### mac submission_status
+
+```sh
+[bundle exec] fastlane mac submission_status
+```
+
+Report which submission requirements are still outstanding.
+
+----
+
+This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
+
+More information about _fastlane_ can be found on [fastlane.tools](https://fastlane.tools).
+
+The documentation of _fastlane_ can be found on [docs.fastlane.tools](https://docs.fastlane.tools).

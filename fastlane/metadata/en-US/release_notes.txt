@@ -1,0 +1,5 @@
+First release.
+
+Control your smart fans from the macOS menu bar: power, speed, oscillation, mode and the
+per-device settings. Set a global keyboard shortcut, or one shortcut per fan. Pair a brand new
+fan onto your WiFi over Bluetooth without touching your phone.

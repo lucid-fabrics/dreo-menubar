@@ -42,6 +42,13 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.utilities
+        # Auto-answers App Store Connect's export-compliance question so builds do
+        # not sit in "Missing Compliance" waiting for a manual click.
+        # false is the truthful answer here: the only cryptography is (a) HTTPS
+        # provided by the OS and (b) an MD5 hash of the password for Dreo's login
+        # endpoint (DreoAPIService.swift:208). Hashing is not encryption, and
+        # OS-provided TLS is exempt, so no non-exempt encryption is used.
+        ITSAppUsesNonExemptEncryption: false
         NSSupportsAutomaticTermination: true
         NSSupportsSuddenTermination: false
         NSBluetoothAlwaysUsageDescription: "Windbar uses Bluetooth to pair new Dreo fans onto your WiFi network."
