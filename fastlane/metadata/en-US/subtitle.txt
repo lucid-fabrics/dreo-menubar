@@ -1,1 +1,1 @@
-Fan control in your menu bar
+Menu bar control for Dreo fans

@@ -1,1 +1,1 @@
-smart fan,menu bar,menubar,wifi fan,bluetooth,fan control,hotkey,shortcut,home,remote
+smart,wifi,bluetooth,hotkey,shortcut,home,remote,tower,circulator,oscillating,air,pairing
