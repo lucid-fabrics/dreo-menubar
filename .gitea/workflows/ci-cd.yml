@@ -103,13 +103,16 @@ jobs:
 
       - name: Push source to GitHub
         env:
-          # "GITHUB_TOKEN" is a Gitea-reserved secret name, so the real PAT lives
-          # under GH_MIRROR_TOKEN.
-          GH_PUSH_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
+          # An SSH deploy key scoped to this one GitHub repo, NOT an account token.
+          # A token in an https:// remote URL is fragile and dangerous: a single
+          # trailing newline in the secret both breaks the URL ("credential url
+          # cannot be parsed") and defeats Gitea's log masking, which printed a
+          # real token into a job log on 2026-07-30. A key never goes in a URL.
+          GH_DEPLOY_KEY: ${{ secrets.GH_DEPLOY_KEY }}
           GH_REPO: lucid-fabrics/dreo-menubar
         run: |
           set -eo pipefail
-          [ -n "$GH_PUSH_TOKEN" ] || { echo "GH_MIRROR_TOKEN not set"; exit 1; }
+          [ -n "$GH_DEPLOY_KEY" ] || { echo "GH_DEPLOY_KEY not set"; exit 1; }
 
           # Refuse to publish if a build artifact ever entered git. GitHub gets
           # source and README only; binaries are an App Store concern.
@@ -119,9 +122,18 @@ jobs:
             exit 1
           fi
 
+          KEYDIR=$(mktemp -d)
+          trap 'rm -rf "$KEYDIR"' EXIT
+          # 0600 before the key is written, and printf so no newline is appended.
+          umask 077
+          printf '%s\n' "$GH_DEPLOY_KEY" > "$KEYDIR/id_ed25519"
+          chmod 600 "$KEYDIR/id_ed25519"
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com > "$KEYDIR/known_hosts" 2>/dev/null
+
+          export GIT_SSH_COMMAND="ssh -i $KEYDIR/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=$KEYDIR/known_hosts"
           git config user.name  "windbar-ci"
           git config user.email "ci@lucidfabrics.local"
           git remote remove github 2>/dev/null || true
-          git remote add github "https://x-access-token:${GH_PUSH_TOKEN}@github.com/${GH_REPO}.git"
+          git remote add github "git@github.com:${GH_REPO}.git"
           git push github "HEAD:refs/heads/main"
           echo "=== published $(git rev-parse --short HEAD) to github.com/${GH_REPO} ==="
