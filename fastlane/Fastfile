@@ -38,6 +38,65 @@ KEYCHAINS = {
   "#{ENV['HOME']}/gitea-runner/windbar-signing.keychain-db" => '***REDACTED-KEYCHAIN-PASSWORD***',
 }.freeze
 
+# App Review wants a contact human and a working demo Dreo account. That is a real
+# name, a real phone number and a LIVE PASSWORD - and this repository is published
+# to github.com/lucid-fabrics/dreo-menubar on every green CD run.
+#
+# So none of it is committed. CI writes fastlane/metadata/review_information/ from
+# secrets moments before deliver reads it, and that directory is gitignored. Do not
+# "just add the files", they would ship a password to the public internet.
+REVIEW_INFORMATION_SECRETS = {
+  'ASC_REVIEW_FIRST_NAME'     => 'first_name.txt',
+  'ASC_REVIEW_LAST_NAME'      => 'last_name.txt',
+  'ASC_REVIEW_EMAIL'          => 'email_address.txt',
+  'ASC_REVIEW_PHONE'          => 'phone_number.txt',
+  'ASC_REVIEW_DEMO_USER'      => 'demo_user.txt',
+  'ASC_REVIEW_DEMO_PASSWORD'  => 'demo_password.txt',
+}.freeze
+
+# Materialise that directory, or remove it. Returns whether deliver should push it.
+#
+# All six or nothing: a half-filled review_information is worse than none, because
+# deliver sends the partial set and Apple rejects the submission for a missing
+# contact phone. The reviewer notes are not secret and stay in git.
+def write_review_information
+  dir     = File.expand_path('metadata/review_information', __dir__)
+  present = REVIEW_INFORMATION_SECRETS.select { |key, _| ENV[key].to_s.strip != '' }
+
+  if present.size < REVIEW_INFORMATION_SECRETS.size
+    FileUtils.rm_rf(dir)
+    missing = REVIEW_INFORMATION_SECRETS.size - present.size
+    UI.important "Review contact not set (#{missing} of 6 secrets missing), " \
+                 'leaving the App Store Connect values untouched'
+    return false
+  end
+
+  FileUtils.mkdir_p(dir)
+  # 0600, and never logged: deliver echoes file CONTENTS at higher verbosity.
+  present.each do |key, filename|
+    path = File.join(dir, filename)
+    File.write(path, ENV[key].to_s.strip)
+    File.chmod(0o600, path)
+  end
+  notes = File.expand_path('review_notes.txt', __dir__)
+  FileUtils.cp(notes, File.join(dir, 'notes.txt')) if File.exist?(notes)
+  UI.success 'Review contact and demo account written from secrets'
+  true
+end
+
+# Is the donation code actually inside this .app?
+#
+# `#if WINDBAR_DONATIONS` fails silently in BOTH directions, and both are shipping
+# bugs: a DMG with no way to donate, or an App Store binary carrying an external
+# payment link, which is a guideline 3.1.1 rejection. Worse, the code compiles to
+# nothing the moment no view references it, so "the flag is set" proves nothing.
+# Grep the built binary instead of trusting the build setting.
+def donation_code_present?(app)
+  binary = File.join(app, 'Contents/MacOS/Windbar')
+  UI.user_error!("No binary at #{binary}") unless File.exist?(binary)
+  File.binread(binary).include?('buy.stripe.com')
+end
+
 platform :mac do
   # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -181,6 +240,18 @@ platform :mac do
     UI.user_error!("No .pkg produced at #{pkg}") unless File.exist?(pkg)
     UI.success("Signed installer: #{pkg}")
 
+    # The mirror image of the check in release_dmg. An App Store binary containing
+    # a Stripe link is a guideline 3.1.1 rejection, and the only thing keeping it
+    # out is one compiler flag being absent. Verify rather than assume.
+    archive = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
+    app     = archive && "#{archive}/Products/Applications/Windbar.app"
+    if app && File.exist?(app) && donation_code_present?(app)
+      UI.user_error!('Donation code is present in the App Store build. WINDBAR_DONATIONS must ' \
+                     'never be set for the `release` lane: guideline 3.1.1 forbids it.')
+    end
+
+    write_review_information
+
     upload_to_app_store(
       api_key:                        asc_api_key,
       pkg:                            pkg,
@@ -257,6 +328,11 @@ platform :mac do
     signer = sh("codesign -dv --verbose=2 #{app.shellescape} 2>&1 | grep Authority | head -1", log: false)
     UI.user_error!("App is not Developer ID signed: #{signer}") unless signer.include?('Developer ID Application')
 
+    unless donation_code_present?(app)
+      UI.user_error!('Donation code is missing from the DMG build. WINDBAR_DONATIONS is set, so ' \
+                     'the compiler stripped it: nothing in the UI references DonationCoordinator.')
+    end
+
     api_key_path = "#{out}/asc.p8"
     File.write(api_key_path, ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT'))
     notary = "--key #{api_key_path.shellescape} " \
@@ -329,6 +405,8 @@ platform :mac do
   desc 'Push the store listing text only. No build, no submission.'
   lane :push_metadata do
     version = File.read(File.expand_path('../project.yml', __dir__))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+    write_review_information
+
     upload_to_app_store(
       api_key:                        asc_api_key,
       app_identifier:                 APP_IDENTIFIER,
@@ -349,7 +427,6 @@ platform :mac do
   desc 'Report which submission requirements are still outstanding.'
   lane :submission_status do
     md      = File.expand_path('metadata', __dir__)
-    pending = File.expand_path('review_information.pending', __dir__)
     shots   = Dir.glob(File.expand_path('screenshots/**/*.{png,jpg,jpeg}', __dir__))
 
     placeholders = Dir.glob("#{md}/**/*.txt").sort
@@ -359,11 +436,12 @@ platform :mac do
     UI.important 'Windbar submission readiness'
     UI.message "  metadata placeholders : #{placeholders.empty? ? 'none' : placeholders.join(', ')}"
     UI.message "  screenshots           : #{shots.count} found (App Store requires at least 1)"
-    if Dir.exist?(pending)
-      UI.message '  app review contact    : NOT ACTIVE (fastlane/review_information.pending)'
-      UI.message '                          see that folder README, it needs a demo Dreo account'
+    missing = REVIEW_INFORMATION_SECRETS.keys.reject { |k| ENV[k].to_s.strip != '' }
+    if missing.empty?
+      UI.message '  app review contact    : provided by secrets'
     else
-      UI.message '  app review contact    : active'
+      UI.message "  app review contact    : missing #{missing.join(', ')}"
+      UI.message '                          set them as Gitea secrets, not files (see RUNBOOK)'
     end
     UI.message '  by hand in ASC only   : App Privacy answers'
     UI.message '  already done          : age rating 4+, content rights, categories, privacy URL,'

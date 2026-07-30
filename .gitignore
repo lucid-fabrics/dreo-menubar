@@ -12,3 +12,12 @@ build/
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png.tmp
+
+# App Review contact + demo Dreo account. Written by CI from secrets at
+# deliver time and never committed: this repo is public.
+fastlane/metadata/review_information/
+
+# Claude Code session transcripts get written into the repo root. They are whole
+# conversations, occasionally with tokens and paths in them, and `git add -A`
+# would publish one to GitHub.
+20??-??-??-??????-*.txt

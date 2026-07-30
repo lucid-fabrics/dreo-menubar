@@ -35,6 +35,11 @@ final class AppModel {
     @ObservationIgnored private let keychainRepository: KeychainRepositoryProtocol
     @ObservationIgnored private let settingsRepository: SettingsRepositoryProtocol
 
+    #if WINDBAR_DONATIONS
+    /// Direct-download build only. See Models/Donations.swift.
+    let donations = DonationCoordinator()
+    #endif
+
     @ObservationIgnored private let shortcutBinder = DeviceShortcutBinder()
     @ObservationIgnored private var hasLoadedSettings = false
     @ObservationIgnored private var settingsSaveTask: Task<Void, Never>?
@@ -126,6 +131,11 @@ final class AppModel {
 
     func togglePower(for device: DreoDevice) {
         setValue(.bool(!device.isOn), forKey: device.powerKey, on: device)
+        #if WINDBAR_DONATIONS
+        // Every power toggle routes through here: the popover, a device shortcut
+        // and a URL trigger all call it. Counting anywhere else would miss two.
+        donations.recordToggle()
+        #endif
     }
 
     func toggleLastSelectedDevicePower() {

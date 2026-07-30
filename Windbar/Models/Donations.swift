@@ -1,5 +1,6 @@
 #if WINDBAR_DONATIONS
 import Foundation
+import Observation
 
 /// Donation prompt for the direct-download build only.
 ///
@@ -25,9 +26,9 @@ import Foundation
 /// Together those mean the median user sees this at most once or twice, ever, and
 /// only after the app has been genuinely useful to them.
 enum Donations {
-    /// Live Stripe Payment Links on the Lucid Fabrics account (acct_1TIxcnAScUMnBBWn).
-    /// Checkout shows "Lucid Fabrics", which matches the GitHub org this is published
-    /// under, so the name is one a donor recognises.
+    /// Live Stripe Payment Links. Checkout shows "Lucid Fabrics", which matches the
+    /// GitHub org this is published under, so the name is one a donor recognises.
+    /// The links are public by design; they are the whole point of shipping them.
     static let links: [(label: String, url: String)] = [
         ("$5", "https://buy.stripe.com/dRmfZg2K7aTOcD0dMMgYU00"),
         ("$10", "https://buy.stripe.com/7sY7sK1G36Dy46u6kkgYU01"),
@@ -100,6 +101,63 @@ struct DonationState: Codable, Equatable, Sendable {
     /// What the UI actually asks. Earned, and there is somewhere to send them.
     func canPrompt(now: Date = Date()) -> Bool {
         Donations.isConfigured && shouldPrompt(now: now)
+    }
+}
+
+/// Owns the counters and decides, once per popover, whether to show the ask.
+///
+/// Storage is UserDefaults rather than `AppSettings` so that nothing about
+/// donations exists in the types the App Store build compiles.
+@MainActor
+@Observable
+final class DonationCoordinator {
+    private(set) var isShowing = false
+
+    @ObservationIgnored private var state: DonationState
+    @ObservationIgnored private let defaults: UserDefaults
+    private static let storageKey = "donationState"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        state = defaults.data(forKey: Self.storageKey)
+            .flatMap { try? JSONDecoder().decode(DonationState.self, from: $0) } ?? DonationState()
+        // Clock starts at install, not at first toggle. Someone who leaves the app
+        // running untouched for three weeks has still had it for three weeks.
+        if state.firstLaunch == nil {
+            state.firstLaunch = Date()
+            save()
+        }
+    }
+
+    func recordToggle() {
+        state.recordUse()
+        save()
+    }
+
+    /// Call when the popover opens.
+    ///
+    /// Records the prompt at the moment it is shown rather than when it is acted
+    /// on, so closing and reopening the popover cannot produce a second ask. With
+    /// the 120 day cooldown that means at most one visible ask per four months.
+    func popoverDidOpen() {
+        guard !isShowing, state.canPrompt() else { return }
+        state.recordPrompt()
+        save()
+        isShowing = true
+    }
+
+    /// Dismissed for now. The cooldown decides when, or whether, it returns.
+    func dismiss() { isShowing = false }
+
+    /// "No thanks", which has to mean never again.
+    func optOut() {
+        state.optedOut = true
+        save()
+        isShowing = false
+    }
+
+    private func save() {
+        defaults.set(try? JSONEncoder().encode(state), forKey: Self.storageKey)
     }
 }
 #endif

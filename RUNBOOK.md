@@ -2,9 +2,12 @@
 
 Operational notes for the build and release pipeline. For the app itself see `README.md`.
 
+> **This file is public.** Never add a password, key, token, internal hostname or IP address to it.
+> Point at where the secret lives instead.
+
 ## How a release happens
 
-Merge to `main` on **Gitea** (`<gitea-host>:3000/lucidfabrics/dreo-menubar`, which is `origin`).
+Merge to `main` on **Gitea** (`<gitea-host>/lucidfabrics/dreo-menubar`, which is `origin`).
 
 ```
 ci  ──>  cd-appstore  ──>  cd-github-source
@@ -23,10 +26,12 @@ what is still outstanding.
 
 ## The build machine
 
-Proxmox **VM 102 `hackintosh-tahoe-CICD`** on pve-mirna, at **<build-vm>**, user `cicd`.
+A dedicated macOS VM on the internal Proxmox cluster. Its address and credentials are in the
+team notes, not here.
 It is the only Mac builder and beeside's iOS pipeline shares it, so concurrent runs queue.
 
-> `~/.ssh/config` still points `hackintosh` at <build-vm-stale>, which is dead. Use the IP.
+> The `hackintosh` entry in `~/.ssh/config` is stale. Use the current address from the
+> team notes, not that alias.
 
 **Two act_runner installs live on it**, each with its own registration and LaunchAgent:
 
@@ -43,7 +48,7 @@ Almost always the org-scoped runner is down. Check:
 
 ```bash
 curl -s -H "Authorization: token $GITEA_TOKEN" \
-  http://<gitea-host>:3000/api/v1/orgs/lucidfabrics/actions/runners
+  http://<gitea-host>/api/v1/orgs/lucidfabrics/actions/runners
 ```
 
 Restart it:
@@ -77,10 +82,13 @@ Job status codes in `action_run_job`: 1 success, 2 failure, 3 cancelled, 4 skipp
 Two identities, in **persistent** keychains on the build machine. CI only *unlocks* them; it never
 imports certificates at build time.
 
-| Keychain | Password | Holds |
-|---|---|---|
-| `~/gitea-runner/ci-signing.keychain-db` | `***REDACTED-KEYCHAIN-PASSWORD***` | Apple Distribution (beeside owns this file) |
-| `~/gitea-runner/windbar-signing.keychain-db` | `***REDACTED-KEYCHAIN-PASSWORD***` | 3rd Party Mac Developer Installer |
+| Keychain | Holds |
+|---|---|
+| `~/gitea-runner/ci-signing.keychain-db` | Apple Distribution (beeside owns this file) |
+| `~/gitea-runner/windbar-signing.keychain-db` | 3rd Party Mac Developer Installer, Developer ID Application |
+
+Their unlock passwords are in the macOS Keychain on the maintainer's machine, and in the
+team password store. **They are deliberately not written here: this file is public.**
 
 Both must be unlocked: the `.app` is signed from the first, the `.pkg` from the second.
 
@@ -122,10 +130,25 @@ Keyword research method and measured data: `design/ASO.md`. Icon generator: `des
 
 ### Traps already paid for
 
-- **Do not create `fastlane/metadata/review_information/` half-filled.** Its mere existence makes
-  deliver write the App Review contact record, and Apple then demands the complete set, failing CD
-  with `You must provide a value for the attribute 'contactPhone'`. It is parked at
-  `fastlane/review_information.pending/` until every field is real.
+- **Never commit the App Review contact or demo Dreo account.** This repo is published to GitHub on
+  every green CD run, so a committed `demo_password.txt` is a live password on the public internet.
+  They are Gitea secrets; `write_review_information` in the Fastfile writes
+  `fastlane/metadata/review_information/` (gitignored) just before deliver reads it, and
+  `cd-github-source` refuses to publish if that path is ever tracked again.
+
+  Set all six in the repo's Gitea secrets (Settings -> Actions -> Secrets), or from the API with
+  `printf '%s'` so no newline is appended:
+
+  ```bash
+  curl -sS -X PUT -H "Authorization: token $GITEA_TOKEN" -H 'Content-Type: application/json' \
+    "http://<gitea-host>/api/v1/repos/lucidfabrics/dreo-menubar/actions/secrets/ASC_REVIEW_PHONE" \
+    -d "$(python3 -c 'import json,sys; print(json.dumps({"data": sys.argv[1]}))' '+15145550123')"
+  ```
+
+  The demo Dreo account needs a fan actually bound to it, or the reviewer sees an empty list.
+- **A half-filled `review_information/` is worse than none.** Its mere existence makes deliver write
+  the contact record, and Apple then demands the complete set, failing CD with
+  `You must provide a value for the attribute 'contactPhone'`. Hence all six or nothing.
 - Uploading a build and **selecting** it for a version are different operations. `release` calls
   `attach_latest_build` for this; without it a version sits there unsubmittable with no warning.
 - Gitea rejects any secret name starting with `GITHUB_`.

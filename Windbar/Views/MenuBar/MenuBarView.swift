@@ -43,12 +43,24 @@ struct MenuBarView: View {
                     .padding(.horizontal, Theme.Metric.gutter)
             }
 
+            #if WINDBAR_DONATIONS
+            if appModel.donations.isShowing {
+                DonationPrompt(coordinator: appModel.donations)
+                    .padding(.horizontal, Theme.Metric.gutter)
+                    .transition(.opacity)
+            }
+            #endif
+
             Divider()
                 .padding(.horizontal, Theme.Metric.gutter)
 
             footer
         }
         .padding(.bottom, Theme.Space.snug)
+        #if WINDBAR_DONATIONS
+        .onAppear { appModel.donations.popoverDidOpen() }
+        .animation(.easeInOut(duration: 0.18), value: appModel.donations.isShowing)
+        #endif
     }
 
     private var footer: some View {

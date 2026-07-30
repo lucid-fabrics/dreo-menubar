@@ -10,7 +10,7 @@
 # The .pkg exists solely inside the runner workspace and is uploaded to Apple.
 #
 # Everything runs on [hackintosh-ios], the one macOS builder (Proxmox VM 102,
-# <build-vm>). beeside's iOS pipeline shares it, so concurrent runs queue.
+# see RUNBOOK). beeside's iOS pipeline shares it, so concurrent runs queue.
 #
 # Job-level `if` uses plain comparisons only. Gitea 1.27's scheduler panics on
 # failure()/cancelled()/always() at job level and leaves the job stuck "waiting" -
@@ -60,6 +60,14 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          # App Review contact + demo Dreo account. Secrets, not files: this repo is
+          # published to GitHub, and demo_password is a live password.
+          ASC_REVIEW_FIRST_NAME: ${{ secrets.ASC_REVIEW_FIRST_NAME }}
+          ASC_REVIEW_LAST_NAME: ${{ secrets.ASC_REVIEW_LAST_NAME }}
+          ASC_REVIEW_EMAIL: ${{ secrets.ASC_REVIEW_EMAIL }}
+          ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
+          ASC_REVIEW_DEMO_USER: ${{ secrets.ASC_REVIEW_DEMO_USER }}
+          ASC_REVIEW_DEMO_PASSWORD: ${{ secrets.ASC_REVIEW_DEMO_PASSWORD }}
           # Monotonic and unique per run. ASC reports a stale "latest build" while a
           # previous one is still processing, so the build number never comes from Apple.
           CI_PIPELINE_NUMBER: ${{ github.run_number }}
@@ -119,6 +127,15 @@ jobs:
           if git ls-files | grep -qiE '\.(dmg|pkg|ipa|app|xcarchive)(/|$)'; then
             echo "Refusing to publish: binary artifacts are tracked in git"
             git ls-files | grep -iE '\.(dmg|pkg|ipa|app|xcarchive)(/|$)'
+            exit 1
+          fi
+
+          # Same idea for secrets. review_information holds a live Dreo password and
+          # personal contact details; it is gitignored and written from secrets at
+          # deliver time. If it is ever tracked again, stop before publishing it.
+          if git ls-files | grep -qE 'review_information/|\.p12$|\.p8$|\.mobileprovision$|\.provisionprofile$'; then
+            echo "Refusing to publish: credential files are tracked in git"
+            git ls-files | grep -E 'review_information/|\.p12$|\.p8$|\.mobileprovision$|\.provisionprofile$'
             exit 1
           fi
 

@@ -105,6 +105,62 @@ final class DonationStateTests: XCTestCase {
                        "showing the prompt must additionally require real links")
     }
 
+    // MARK: - Coordinator
+
+    /// A scratch defaults domain, so a test run never touches the real counters.
+    private func scratchDefaults(_ name: String, seed: DonationState?) throws -> UserDefaults {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
+        if let seed {
+            defaults.set(try JSONEncoder().encode(seed), forKey: "donationState")
+        }
+        return defaults
+    }
+
+    /// The one this pins: reopening the popover must not produce a second ask.
+    /// The prompt is recorded when shown, not when acted on, so the cooldown
+    /// starts immediately.
+    @MainActor
+    func test_reopeningPopover_doesNotAskTwice() throws {
+        let defaults = try scratchDefaults(#function, seed: earned(now: Date()))
+        let coordinator = DonationCoordinator(defaults: defaults)
+
+        coordinator.popoverDidOpen()
+        XCTAssertTrue(coordinator.isShowing, "an earned user should see it once")
+
+        coordinator.dismiss()
+        coordinator.popoverDidOpen()
+        XCTAssertFalse(coordinator.isShowing, "closing and reopening must not re-ask")
+
+        // Nor on the next launch.
+        let relaunched = DonationCoordinator(defaults: defaults)
+        relaunched.popoverDidOpen()
+        XCTAssertFalse(relaunched.isShowing)
+    }
+
+    @MainActor
+    func test_optOut_survivesRelaunch() throws {
+        let defaults = try scratchDefaults(#function, seed: earned(now: Date()))
+        let coordinator = DonationCoordinator(defaults: defaults)
+        coordinator.popoverDidOpen()
+        coordinator.optOut()
+        XCTAssertFalse(coordinator.isShowing)
+
+        let relaunched = DonationCoordinator(defaults: defaults)
+        relaunched.popoverDidOpen()
+        XCTAssertFalse(relaunched.isShowing, "\"No thanks\" must outlive the process")
+    }
+
+    /// Nothing to show someone who installed it this morning.
+    @MainActor
+    func test_freshInstall_coordinatorStaysQuiet() throws {
+        let defaults = try scratchDefaults(#function, seed: nil)
+        let coordinator = DonationCoordinator(defaults: defaults)
+        coordinator.recordToggle()
+        coordinator.popoverDidOpen()
+        XCTAssertFalse(coordinator.isShowing)
+    }
+
     func test_stateRoundTripsThroughCodable() throws {
         let now = Date()
         let state = earned(now: now)
