@@ -137,3 +137,66 @@ jobs:
           git remote add github "git@github.com:${GH_REPO}.git"
           git push github "HEAD:refs/heads/main"
           echo "=== published $(git rev-parse --short HEAD) to github.com/${GH_REPO} ==="
+
+  cd-github-release:
+    name: 'CD · notarized DMG to GitHub'
+    needs: [ci, cd-appstore, cd-github-source]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: [hackintosh-ios]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build, notarize and publish the DMG
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+          GH_REPO: lucid-fabrics/dreo-menubar
+          CI_PIPELINE_NUMBER: ${{ github.run_number }}
+        run: |
+          set -eo pipefail
+          export RBENV_ROOT="$HOME/.rbenv"
+          export RBENV_VERSION="3.3.11"
+          export PATH="$RBENV_ROOT/shims:$RBENV_ROOT/bin:$HOME/.local/xcodegen/bin:$PATH"
+          [ -n "$GH_RELEASE_TOKEN" ] || { echo "GH_RELEASE_TOKEN not set"; exit 1; }
+
+          # Notarization waits on Apple, so keep the runner looking alive.
+          ( while true; do echo "... $(date -u +%H:%M:%S) ..."; sleep 30; done ) & HB=$!
+          trap 'kill $HB 2>/dev/null' EXIT
+
+          bundle install --quiet
+          bundle exec fastlane mac release_dmg
+
+          VERSION=$(sed -n 's/.*MARKETING_VERSION: *"\(.*\)".*/\1/p' project.yml)
+          DMG="build/dmg/Windbar-$VERSION.dmg"
+          [ -f "$DMG" ] || { echo "no DMG at $DMG"; exit 1; }
+
+          # Refuse to ship a DMG Gatekeeper would block. Better to fail the job than
+          # to publish a download that greets people with "Windbar is damaged".
+          xcrun stapler validate "$DMG"
+
+          # Create the release if this version is new, then upload. Re-running the
+          # same version replaces the asset rather than erroring.
+          API="https://api.github.com/repos/${GH_REPO}"
+          AUTH="Authorization: Bearer ${GH_RELEASE_TOKEN}"
+          TAG="v$VERSION"
+
+          ID=$(curl -sf -H "$AUTH" "$API/releases/tags/$TAG" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' 2>/dev/null || true)
+          if [ -z "$ID" ]; then
+            ID=$(curl -sf -X POST -H "$AUTH" -H "Content-Type: application/json" "$API/releases" \
+              -d "{\"tag_name\":\"$TAG\",\"name\":\"Windbar $VERSION\",\"body\":\"Signed and notarized by Apple. Download the DMG, drag Windbar to Applications, open it.\\n\\nFree. The App Store build is the same app if you would rather get updates automatically.\",\"draft\":false,\"prerelease\":false}" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+            echo "created release $TAG"
+          else
+            OLD=$(curl -sf -H "$AUTH" "$API/releases/$ID/assets" \
+              | python3 -c "import json,sys; print(next((a['id'] for a in json.load(sys.stdin) if a['name']=='Windbar-$VERSION.dmg'), ''))" || true)
+            [ -n "$OLD" ] && curl -sf -X DELETE -H "$AUTH" "$API/releases/assets/$OLD" && echo "replaced existing asset"
+          fi
+
+          curl -sf -X POST -H "$AUTH" -H "Content-Type: application/x-apple-diskimage" \
+            --data-binary @"$DMG" \
+            "https://uploads.github.com/repos/${GH_REPO}/releases/$ID/assets?name=Windbar-$VERSION.dmg" \
+            > /dev/null
+          echo "=== published $DMG to github.com/${GH_REPO}/releases/tag/$TAG ==="
+          echo "=== published $(git rev-parse --short HEAD) to github.com/${GH_REPO} ==="

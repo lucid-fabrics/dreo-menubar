@@ -212,6 +212,88 @@ platform :mac do
     attach_latest_build(version: version)
   end
 
+  desc 'Build a Developer ID signed, notarized DMG for direct download. Not for the App Store.'
+  lane :release_dmg do
+    generate_project
+    unlock_signing_keychains
+
+    version = File.read(File.expand_path('../project.yml', __dir__))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+    UI.user_error!('Could not read MARKETING_VERSION from project.yml') if version.to_s.empty?
+    build_number = ENV['CI_PIPELINE_NUMBER'] || Time.now.to_i.to_s
+
+    ids = sh('security find-identity -v', log: false)
+    UI.user_error!('Developer ID Application identity missing. Run restore_signing.') unless
+      ids.include?('Developer ID Application')
+
+    out = File.expand_path('../build/dmg', __dir__)
+    FileUtils.rm_rf(out)
+    FileUtils.mkdir_p(out)
+    archive = "#{out}/Windbar.xcarchive"
+
+    # Developer ID, NOT the App Store identity, and deliberately no provisioning
+    # profile: outside the store there is nothing to provision. Overriding on the
+    # command line reaches every target, which is why the profile is blanked here
+    # rather than left at the "Windbar MAS" value project.yml sets for Release.
+    #
+    # WINDBAR_DONATIONS is what makes this build differ from the App Store one. It
+    # compiles in the donation prompt, which must never exist in the App Store
+    # binary: guideline 3.1.1 forbids pointing users at outside payment.
+    sh("set -o pipefail && xcodebuild archive " \
+       "-project #{File.expand_path('../' + PROJECT, __dir__).shellescape} " \
+       "-scheme #{SCHEME} -configuration Release " \
+       "-archivePath #{archive.shellescape} -destination 'generic/platform=macOS' " \
+       "CODE_SIGN_STYLE=Manual " \
+       "CODE_SIGN_IDENTITY='Developer ID Application' " \
+       "PROVISIONING_PROFILE_SPECIFIER='' " \
+       "DEVELOPMENT_TEAM=#{TEAM_ID} " \
+       "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build_number} " \
+       "OTHER_CODE_SIGN_FLAGS='--timestamp' " \
+       "SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) WINDBAR_DONATIONS' " \
+       "| xcbeautify || true")
+
+    app = "#{archive}/Products/Applications/Windbar.app"
+    UI.user_error!("No app at #{app}") unless File.exist?(app)
+    sh("codesign --verify --deep --strict --verbose=2 #{app.shellescape}")
+    signer = sh("codesign -dv --verbose=2 #{app.shellescape} 2>&1 | grep Authority | head -1", log: false)
+    UI.user_error!("App is not Developer ID signed: #{signer}") unless signer.include?('Developer ID Application')
+
+    api_key_path = "#{out}/asc.p8"
+    File.write(api_key_path, ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT'))
+    notary = "--key #{api_key_path.shellescape} " \
+             "--key-id #{ENV.fetch('APP_STORE_CONNECT_API_KEY_ID').shellescape} " \
+             "--issuer #{ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID').shellescape}"
+
+    begin
+      # Notarize and staple the app FIRST. Stapling only the disk image leaves the
+      # copy the user drags to /Applications without a ticket, so its first launch
+      # needs network. Doing the app too makes it work offline.
+      UI.important 'Notarizing the app'
+      sh("ditto -c -k --keepParent #{app.shellescape} #{out.shellescape}/Windbar.zip")
+      sh("xcrun notarytool submit #{out.shellescape}/Windbar.zip #{notary} --wait --timeout 30m")
+      sh("xcrun stapler staple #{app.shellescape}")
+
+      dmg = "#{out}/Windbar-#{version}.dmg"
+      stage = "#{out}/stage"
+      FileUtils.mkdir_p(stage)
+      FileUtils.cp_r(app, stage)
+      File.symlink('/Applications', "#{stage}/Applications")
+      sh("hdiutil create -volname Windbar -srcfolder #{stage.shellescape} -ov -format UDZO #{dmg.shellescape}")
+      sh("codesign --sign 'Developer ID Application' --timestamp #{dmg.shellescape}")
+
+      UI.important 'Notarizing the disk image'
+      sh("xcrun notarytool submit #{dmg.shellescape} #{notary} --wait --timeout 30m")
+      sh("xcrun stapler staple #{dmg.shellescape}")
+      sh("xcrun stapler validate #{dmg.shellescape}")
+      # The real test: would Gatekeeper let a downloader open this?
+      sh("spctl -a -vvv -t install #{dmg.shellescape}")
+
+      UI.success("Notarized #{dmg}")
+      dmg
+    ensure
+      FileUtils.rm_f(api_key_path)
+    end
+  end
+
   desc 'Attach the newest processed build to the current version.'
   lane :attach_latest_build do |options|
     require 'spaceship'
