@@ -163,6 +163,43 @@ platform :mac do
     )
 
     UI.success("Uploaded Windbar #{version} (#{build_number}) to App Store Connect")
+
+    # Uploading a build and SELECTING it for the version are two different things.
+    # Without this the version sits there with no build attached and cannot be
+    # submitted, with nothing in the upload output hinting at it.
+    attach_latest_build(version: version)
+  end
+
+  desc 'Attach the newest processed build to the current version.'
+  lane :attach_latest_build do |options|
+    require 'spaceship'
+    version = options[:version] ||
+              File.read(File.expand_path('../project.yml', __dir__))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+    Spaceship::ConnectAPI.auth(
+      key_id:     ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
+      issuer_id:  ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
+      key:        ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT'),
+    )
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    UI.user_error!("App #{APP_IDENTIFIER} not found") if app.nil?
+
+    edit = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::MAC_OS)
+    UI.user_error!("No editable #{version} version found") if edit.nil?
+
+    # Apple needs a few minutes after upload before a build is VALID and selectable.
+    build = nil
+    12.times do |i|
+      build = Spaceship::ConnectAPI::Build.all(
+        app_id: app.id, platform: Spaceship::ConnectAPI::Platform::MAC_OS, sort: '-version'
+      ).find { |b| b.processing_state == 'VALID' }
+      break if build
+      UI.message("Waiting for a processed build (#{i + 1}/12)...")
+      sleep(30)
+    end
+    UI.user_error!('No VALID build to attach') if build.nil?
+
+    edit.select_build(build_id: build.id)
+    UI.success("Attached build #{build.version} to version #{version}")
   end
 
   desc 'Push the store listing text only. No build, no submission.'
@@ -204,7 +241,9 @@ platform :mac do
     else
       UI.message '  app review contact    : active'
     end
-    UI.message '  by hand in ASC only   : App Privacy answers (age rating is already set to 4+)'
+    UI.message '  by hand in ASC only   : App Privacy answers'
+    UI.message '  already done          : age rating 4+, content rights, categories, privacy URL,'
+    UI.message '                          export compliance, price schedule'
 
     blockers = []
     blockers << 'screenshots' if shots.empty?
