@@ -7,3 +7,8 @@ build/
 .swiftpm/
 *.p12
 *.mobileprovision
+
+# fastlane generates these on every run
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png.tmp
