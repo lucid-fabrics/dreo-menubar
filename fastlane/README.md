@@ -31,6 +31,14 @@ PR gate: build and run the unit tests. No signing, no upload.
 
 Build, sign and upload a build to App Store Connect. Does not submit for review.
 
+### mac attach_latest_build
+
+```sh
+[bundle exec] fastlane mac attach_latest_build
+```
+
+Attach the newest processed build to the current version.
+
 ### mac push_metadata
 
 ```sh

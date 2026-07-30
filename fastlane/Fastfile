@@ -84,6 +84,49 @@ platform :mac do
 
   # ── public lanes ───────────────────────────────────────────────────────────
 
+  desc 'Rebuild the signing keychains on a fresh build machine. Recovery only, not CI.'
+  lane :restore_signing do
+    UI.important 'Rebuilding Windbar signing from match storage'
+    UI.message 'Needs MATCH_PASSWORD and MATCH_GIT_BASIC_AUTHORIZATION in the environment.'
+    %w[MATCH_PASSWORD MATCH_GIT_BASIC_AUTHORIZATION].each do |v|
+      UI.user_error!("#{v} is not set") if ENV[v].to_s.empty?
+    end
+
+    kc_path = "#{ENV['HOME']}/gitea-runner/windbar-signing.keychain-db"
+    kc_pass = '***REDACTED-KEYCHAIN-PASSWORD***'
+    kc_name = 'windbar-signing.keychain'
+
+    unless File.exist?(kc_path)
+      FileUtils.mkdir_p(File.dirname(kc_path))
+      sh("security create-keychain -p #{kc_pass.shellescape} #{kc_path.shellescape}")
+      sh("security set-keychain-settings -lut 21600 #{kc_path.shellescape}")
+    end
+    sh("security unlock-keychain -p #{kc_pass.shellescape} #{kc_path.shellescape}")
+
+    # Reads the `windbar` orphan branch (see Matchfile). readonly so a recovery run
+    # can never mint a certificate and never revoke one belonging to another app.
+    match(
+      type:              'appstore',
+      platform:          'macos',
+      readonly:          true,
+      keychain_name:     kc_name,
+      keychain_password: kc_pass,
+    )
+
+    # Put it on the search list so codesign and productbuild can see it, without
+    # dropping whatever is already there (beeside's keychain lives here too).
+    current = sh('security list-keychains -d user', log: false)
+              .split("\n").map { |s| s.strip.delete('"') }.reject(&:empty?)
+    unless current.any? { |k| k.include?('windbar-signing') }
+      sh("security list-keychains -d user -s #{current.map(&:shellescape).join(' ')} #{kc_path.shellescape}")
+    end
+
+    ids = sh('security find-identity -v', log: false)
+    UI.user_error!('Apple Distribution missing after restore') unless ids.include?('Apple Distribution')
+    UI.user_error!('Mac Installer missing after restore') unless ids.include?('3rd Party Mac Developer Installer')
+    UI.success('Signing restored. A release build should now work on this machine.')
+  end
+
   desc 'PR gate: build and run the unit tests. No signing, no upload.'
   lane :build_check do
     generate_project

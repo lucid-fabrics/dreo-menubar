@@ -5,22 +5,7 @@
     
     
       
-      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.000205">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="1: Switch to mac asc_api_key lane" time="5.0e-05">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="2: app_store_connect_api_key" time="0.001678">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="3: upload_to_app_store" time="7.733028">
+      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.000312">
         
       </testcase>
     
