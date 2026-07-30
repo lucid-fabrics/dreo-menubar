@@ -139,3 +139,28 @@ changed. That wastes the slots carrying most of the conversion weight. The set i
 menu bar popover, Settings shortcuts, the pairing wizard, and the real sign-in screen for the trust
 frame. Being upfront that a Dreo account is required beats a one-star review from someone who found
 out after paying.
+
+## The menu bar is drawn, and drawn accurately
+
+Early versions used a plain grey strip with the icon and a clock, which read as fake to anyone who
+uses a Mac. The bar is now a real reconstruction:
+
+- **48px tall**, because 2880x1800 represents a 1440x900 point screen at 2x and the macOS menu bar
+  is 24pt. The first attempt was 74px, nearly twice too tall. Mac users notice that without being
+  able to say why.
+- **Apple logo** (U+F8FF, which SF Pro carries), then the active app in Bold, then its menus.
+- The left side says **Finder, not Windbar**. Windbar sets `LSUIElement`, so it has no menus and
+  never owns the menu bar. It appears only as a status item on the right, which is what is drawn.
+- Status glyphs are **drawn vectorially**, not faked with text: Wi-Fi arcs, battery with fill level
+  and terminal, Control Center's two toggle pills, the Spotlight magnifier. Right-to-left order
+  matches real macOS: third-party items, Wi-Fi, battery, Control Center, Spotlight, clock.
+- The Windbar item carries the **rounded highlight** macOS shows while a menu extra is open.
+
+## Type
+
+- Headline: **SF Pro Black**, not Bold. Bold is too polite for something skimmed in a second.
+- Subhead: **Medium**, not Regular, so it survives the product page carousel shrinking the frame.
+- A thin accent bar in the app's blue ties the subhead to the brand and gives the eye a start point.
+- **The headline auto-fits.** At a fixed size every caption wrapped and stranded an orphan word on
+  its own line ("all.", "needed.", "stays"), which reads as a mistake. The size now steps down until
+  the line breaks written in `CAPTIONS` are the only breaks that happen.
