@@ -50,7 +50,7 @@ jobs:
   cd-appstore:
     name: 'CD · App Store Connect'
     needs: [ci]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: [hackintosh-ios]
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +94,7 @@ jobs:
   cd-github-source:
     name: 'CD · publish source to GitHub'
     needs: [ci, cd-appstore]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: [hackintosh-ios]
     steps:
       - uses: actions/checkout@v4

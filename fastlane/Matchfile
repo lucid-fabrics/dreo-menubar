@@ -1,0 +1,19 @@
+# Shared with lucidpal and beeside. That is deliberate: the repo already holds the
+# Apple Distribution cert (4KXK5L7R43) this app signs with, so match reuses it
+# instead of minting a second one.
+#
+# NEVER run `match nuke` or any cert-pruning step from this repo. Revoking a
+# Distribution cert here breaks beeside, lucidpal and medclear, which share team
+# KRPUAN3FFA and this same storage.
+git_url('https://github.com/lucid-fabrics/lucidpal-certs')
+git_branch('master')
+storage_mode('git')
+
+type('appstore')
+platform('macos')
+app_identifier(['com.lucidfabrics.windbar'])
+team_id('KRPUAN3FFA')
+
+# The Mac App Store needs two certificates: Apple Distribution signs the .app,
+# and 3rd Party Mac Developer Installer signs the .pkg that gets uploaded.
+additional_cert_types(['mac_installer_distribution'])
