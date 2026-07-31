@@ -39,6 +39,14 @@ PR gate: build and run the unit tests. No signing, no upload.
 
 Build, sign and upload a build to App Store Connect. Does not submit for review.
 
+### mac release_dmg
+
+```sh
+[bundle exec] fastlane mac release_dmg
+```
+
+Build a Developer ID signed, notarized DMG for direct download. Not for the App Store.
+
 ### mac attach_latest_build
 
 ```sh

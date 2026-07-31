@@ -8,6 +8,12 @@ actor DreoAPIServiceStub: DreoAPIServiceProtocol {
 
     private(set) var loginCallCount = 0
     private(set) var listDevicesCallCount = 0
+    private(set) var signOutCallCount = 0
+
+    func signOut() async {
+        signOutCallCount += 1
+        sessionToReturn = nil
+    }
 
     func login(_ credentials: DreoCredentials) async throws {
         loginCallCount += 1

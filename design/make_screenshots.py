@@ -32,6 +32,13 @@ ICON = os.path.abspath(os.path.join(
     ROOT, '..', 'Windbar', 'Resources', 'Assets.xcassets',
     'AppIcon.appiconset', 'icon_512x512@2x.png'))
 
+# The status item is an SF Symbol, NOT the app icon. WindbarApp.swift renders
+# Image(systemName: appModel.menuBarSymbol), which is "fan.fill" while a fan is
+# running, so that is what the store page has to show. Compositing the colour app
+# icon here made every screenshot promise a menu bar the app never draws.
+SYMBOL = 'fan.fill'
+SYMBOL_PNG = os.path.join(ROOT, 'screenshots', 'menubar_symbol.png')
+
 SF = '/System/Library/Fonts/SFNS.ttf'
 
 # Caption copy. Formula: verb + benefit + result, 3 to 6 words, benefit not feature.
@@ -118,6 +125,20 @@ def backdrop():
     return Image.alpha_composite(img, glow.filter(ImageFilter.GaussianBlur(160)))
 
 
+def status_symbol():
+    """The menu bar glyph, rendered from the real SF Symbol by export_symbol.swift.
+
+    Shelling out to Swift is the only way to get the actual system glyph: the SF
+    Symbols font is not redistributable and Pillow has no access to it.
+    """
+    import subprocess
+    os.makedirs(os.path.dirname(SYMBOL_PNG), exist_ok=True)
+    subprocess.run(
+        ['swift', os.path.join(ROOT, 'export_symbol.swift'), SYMBOL, '34', 'white', SYMBOL_PNG],
+        check=True, capture_output=True)
+    return Image.open(SYMBOL_PNG).convert('RGBA')
+
+
 def menu_bar(img, icon):
     """A real macOS menu bar, not a grey strip.
 
@@ -162,13 +183,14 @@ def menu_bar(img, icon):
     wifi(d, right - 13, cy);             right -= 52
 
     # ---- the app itself, highlighted the way macOS shows an open menu extra
-    ic_size = 34
-    ix = int(right - ic_size)
-    d.rounded_rectangle([ix - 11, 4, ix + ic_size + 11, BAR - 4],
+    ic_h = 30
+    ic_w = max(1, round(icon.width * ic_h / icon.height))
+    ix = int(right - ic_w)
+    d.rounded_rectangle([ix - 11, 4, ix + ic_w + 11, BAR - 4],
                         radius=7, fill=(255, 255, 255, 64))
-    img.alpha_composite(icon.resize((ic_size, ic_size), Image.LANCZOS),
-                        (ix, int(cy - ic_size / 2)))
-    return ix + ic_size // 2, BAR
+    img.alpha_composite(icon.resize((ic_w, ic_h), Image.LANCZOS),
+                        (ix, int(cy - ic_h / 2)))
+    return ix + ic_w // 2, BAR
 
 
 def paste_popover(img, shot, anchor_x, bar_h=48):
@@ -257,7 +279,7 @@ def main():
         sys.exit('No raw captures. Create %s and put 01.png, 02.png ... in it.\n'
                  'Capture with Cmd-Shift-4 then Space, clicking the popover.' % RAW)
     os.makedirs(OUT, exist_ok=True)
-    icon = Image.open(ICON).convert('RGBA')
+    icon = status_symbol()
     built = 0
     for num, head, sub in CAPTIONS:
         src = os.path.join(RAW, '%s.png' % num)

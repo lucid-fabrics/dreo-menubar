@@ -25,6 +25,13 @@ actor DreoAPIService: DreoAPIServiceProtocol {
         return DreoSession(accessToken: accessToken, regionHost: regionHost, userId: userId)
     }
 
+    func signOut() async {
+        accessToken = nil
+        credentials = nil
+        userId = nil
+        regionHost = "us"
+    }
+
     func login(_ credentials: DreoCredentials) async throws {
         self.credentials = credentials
         try await performLogin(credentials: credentials, allowRegionRetry: true)

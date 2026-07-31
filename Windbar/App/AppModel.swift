@@ -198,6 +198,34 @@ final class AppModel {
         }
     }
 
+    /// Forget the account: no way back in without typing the password again.
+    ///
+    /// Order matters. Stop the socket and the update stream first, or an in-flight
+    /// update can repopulate `devices` after they are cleared and leave the popover
+    /// showing fans belonging to an account that is no longer signed in.
+    func signOut() async {
+        updatesTask?.cancel()
+        updatesTask = nil
+        await socketService.disconnect()
+        await apiService.signOut()
+
+        // The Keychain item is the thing that survives a relaunch, so a failure here
+        // is the one that actually matters: report it rather than pretending.
+        do {
+            try await keychainRepository.deleteCredentials()
+        } catch {
+            Self.logger.error("Sign out could not clear the Keychain: \(String(describing: error), privacy: .public)")
+            errorMessage = "Signed out, but your password could not be removed from the Keychain."
+        }
+
+        devices = []
+        // Unbind every per-device hotkey. Leaving them registered means a keypress
+        // fires at a device list that no longer exists.
+        shortcutBinder.bind(devices: []) { _ in }
+        settings.lastSelectedDeviceSerialNumber = nil
+        launchState = .needsLogin
+    }
+
     // MARK: - Login internals
 
     private func login(credentials: DreoCredentials, persist: Bool) async {
