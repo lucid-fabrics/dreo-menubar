@@ -90,6 +90,16 @@ struct MenuBarView: View {
             }
             .keyboardShortcut(",")
 
+            #if WINDBAR_DONATIONS
+            // Always here, independent of the earned-ask gating below: a
+            // misclicked "No thanks" or a change of heart six months after
+            // opting out should not be a locked door. This never triggers
+            // itself, so it is not a second nag, just a door that stays open.
+            HoverRow(icon: "heart", title: "Support Windbar…") {
+                withAnimation { appModel.donations.showManually() }
+            }
+            #endif
+
             // Account actions also live in Preferences, but this popover is the
             // whole app: anything only reachable one window deeper is, in
             // practice, not reachable.

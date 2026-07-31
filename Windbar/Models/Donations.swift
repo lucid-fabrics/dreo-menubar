@@ -44,6 +44,58 @@ enum Donations {
     static let maximumLifetimePrompts = 3
 }
 
+/// What the card says. Three fixed messages, one per lifetime ask, rather than a
+/// larger random pool.
+///
+/// A bigger rotating pool reads as copy that is being tested on people; a specific
+/// message tied to real numbers from `DonationState` reads as sincere. Because the
+/// message is keyed to `promptCount` rather than chosen at random, the same user
+/// sees a different, escalating message each of their three asks: an opener, a
+/// reminder, and an honest "this is the last one".
+struct DonationPitch {
+    let headline: String
+    let body: String
+    /// Automatic asks offer to opt out of future asks. The manually opened card
+    /// has nothing to opt out of, since it never triggers itself, so it hides
+    /// that row entirely rather than let "No thanks" mean something different
+    /// depending on how the card got there.
+    var allowsOptOut = true
+
+    /// `promptCount` at the moment this ask fires: 0 for the first ever prompt,
+    /// 1 for the second, 2 for the third and last. `state` still has the PREVIOUS
+    /// count when this runs, since it is read before `recordPrompt` increments it.
+    static func forAsk(_ state: DonationState) -> DonationPitch {
+        let toggles = state.toggleCount
+        let days = state.activeDays.count
+        switch state.promptCount {
+        case 0:
+            return DonationPitch(
+                headline: "Windbar is free",
+                body: "You've reached for it \(toggles) times over \(days) days. If it saved "
+                    + "you a few trips across the room, a coffee's worth helps keep it going.")
+        case 1:
+            return DonationPitch(
+                headline: "Still earning its spot?",
+                body: "\(toggles) toggles and counting, no ads, no account, no tracking. "
+                    + "Chip in if it's still worth the space in your menu bar.")
+        default:
+            return DonationPitch(
+                headline: "Last time asking, promise",
+                body: "\(days) days of use and this is genuinely the last time you'll see this. "
+                    + "If Windbar has been useful, now's a good moment.")
+        }
+    }
+
+    /// Shown only when the user opens "Support Windbar" from the footer
+    /// themselves. Available even after a permanent opt-out or the lifetime cap:
+    /// declining the app's own ask should not lock the door for someone who
+    /// changes their mind and comes looking for it later.
+    static let manual = DonationPitch(
+        headline: "Support Windbar",
+        body: "No pressure, just here if you ever want to chip in.",
+        allowsOptOut: false)
+}
+
 /// Counters behind the prompt. Deliberately dumb and local: no identifiers, no
 /// network, nothing that leaves the Mac. See docs/PRIVACY.md.
 struct DonationState: Codable, Equatable, Sendable {
@@ -112,6 +164,7 @@ struct DonationState: Codable, Equatable, Sendable {
 @Observable
 final class DonationCoordinator {
     private(set) var isShowing = false
+    private(set) var pitch: DonationPitch?
 
     @ObservationIgnored private var state: DonationState
     @ObservationIgnored private let defaults: UserDefaults
@@ -141,6 +194,8 @@ final class DonationCoordinator {
     /// the 120 day cooldown that means at most one visible ask per four months.
     func popoverDidOpen() {
         guard !isShowing, state.canPrompt() else { return }
+        // Read before recordPrompt increments promptCount, so ask 1 gets index 0.
+        pitch = DonationPitch.forAsk(state)
         state.recordPrompt()
         save()
         isShowing = true
@@ -148,6 +203,15 @@ final class DonationCoordinator {
 
     /// Dismissed for now. The cooldown decides when, or whether, it returns.
     func dismiss() { isShowing = false }
+
+    /// User-initiated, from the footer. Deliberately bypasses `canPrompt()`
+    /// entirely and touches nothing in `state`: it must work even for someone
+    /// who opted out or already used up all three automatic asks, and opening
+    /// it must not itself count as, or block, one of those asks.
+    func showManually() {
+        pitch = .manual
+        isShowing = true
+    }
 
     /// "No thanks", which has to mean never again.
     func optOut() {

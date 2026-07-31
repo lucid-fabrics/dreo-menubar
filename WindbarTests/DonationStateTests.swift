@@ -161,6 +161,74 @@ final class DonationStateTests: XCTestCase {
         XCTAssertFalse(coordinator.isShowing)
     }
 
+    /// The three lifetime asks are meant to escalate (opener, reminder, last
+    /// chance), not repeat. A pool chosen at random could show the same message
+    /// twice, or the "last one" line before it actually was the last one.
+    @MainActor
+    func test_threeLifetimeAsks_eachGetADifferentEscalatingPitch() throws {
+        var state = earned(now: Date())
+        let defaults = try scratchDefaults(#function, seed: nil)
+        var headlines: [String] = []
+
+        for _ in 0..<Donations.maximumLifetimePrompts {
+            defaults.set(try JSONEncoder().encode(state), forKey: "donationState")
+            let coordinator = DonationCoordinator(defaults: defaults)
+            coordinator.popoverDidOpen()
+            headlines.append(try XCTUnwrap(coordinator.pitch).headline)
+            // Clear the cooldown for the next iteration the same way a real
+            // 121-day wait would, rather than re-deriving the stored state by hand.
+            state.recordPrompt(now: Date(timeIntervalSinceNow: -Double(Donations.cooldownDays + 1) * 86_400))
+        }
+
+        XCTAssertEqual(headlines.count, 3)
+        XCTAssertEqual(Set(headlines).count, 3, "all three asks must read as distinct messages")
+        XCTAssertEqual(headlines.first, "Windbar is free", "the opener is always the first ask")
+    }
+
+    // MARK: - Manual open, from the footer
+
+    /// The whole point: opting out of the app's own asks must not lock the door
+    /// for someone who comes looking for it themselves later.
+    @MainActor
+    func test_showManually_worksEvenAfterPermanentOptOut() throws {
+        var state = earned(now: Date())
+        state.optedOut = true
+        let defaults = try scratchDefaults(#function, seed: state)
+        let coordinator = DonationCoordinator(defaults: defaults)
+
+        coordinator.popoverDidOpen()
+        XCTAssertFalse(coordinator.isShowing, "an opted-out user must not get the automatic ask")
+
+        coordinator.showManually()
+        XCTAssertTrue(coordinator.isShowing, "but they can still find it themselves")
+        XCTAssertEqual(coordinator.pitch?.headline, "Support Windbar")
+        XCTAssertEqual(coordinator.pitch?.allowsOptOut, false, "nothing to opt out of here")
+    }
+
+    /// Also works before anything is earned: a brand new user who wants to give
+    /// on day one should not have to wait out the 14-day gate to find the link.
+    @MainActor
+    func test_showManually_worksOnAFreshInstall() throws {
+        let defaults = try scratchDefaults(#function, seed: nil)
+        let coordinator = DonationCoordinator(defaults: defaults)
+        coordinator.showManually()
+        XCTAssertTrue(coordinator.isShowing)
+    }
+
+    /// A manual open is presentation only. It must not consume one of the three
+    /// lifetime asks or reset the cooldown, or opening it defensively would cost
+    /// the user a real, earned ask later.
+    @MainActor
+    func test_showManually_doesNotPersistOrCountAsALifetimeAsk() throws {
+        let defaults = try scratchDefaults(#function, seed: nil)
+        let coordinator = DonationCoordinator(defaults: defaults)
+        coordinator.showManually()
+        XCTAssertTrue(coordinator.isShowing)
+
+        let reloaded = DonationCoordinator(defaults: defaults)
+        XCTAssertNil(reloaded.pitch, "a manual open must not have saved anything")
+    }
+
     func test_stateRoundTripsThroughCodable() throws {
         let now = Date()
         let state = earned(now: now)
