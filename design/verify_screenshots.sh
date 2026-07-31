@@ -7,7 +7,14 @@
 # that no longer exist, so every candidate is confirmed individually.
 #
 #   ./design/verify_screenshots.sh          report only
-#   ./design/verify_screenshots.sh --fix    also delete duplicates, keeping one per file
+#   ./design/verify_screenshots.sh --fix    delete duplicates, keeping one per file
+#   ./design/verify_screenshots.sh --purge  delete ALL of them, so the next
+#                                           push_metadata uploads a clean set
+#
+# Prefer --purge when the IMAGES changed but the filenames did not. --fix dedupes by
+# name and keeps an arbitrary copy, which can be the superseded one. That is exactly
+# what happened correcting the menu bar icon: old and new 01_windbar.png both sat on
+# the listing at once.
 set -eo pipefail
 cd "$(dirname "$0")/.."
 : "${APP_STORE_CONNECT_API_KEY_ID:?set APP_STORE_CONNECT_API_KEY_ID}"
@@ -22,6 +29,7 @@ ISSUER = os.environ['APP_STORE_CONNECT_API_ISSUER_ID']
 KEY    = os.environ['APP_STORE_CONNECT_API_KEY_CONTENT']
 APP    = os.environ['APP_ID']
 FIX    = os.environ.get('FIX') == '--fix'
+PURGE  = os.environ.get('FIX') == '--purge'
 
 def call(method, path):
     now = int(time.time())
@@ -61,6 +69,13 @@ dupes = []
 for fn, ids in sorted(seen.items()):
     print('  %-20s x%d' % (fn, len(ids)))
     dupes.extend(ids[1:])
+
+if PURGE:
+    for fn, i in live:
+        call('DELETE', f'/v1/appScreenshots/{i}')
+        print('  deleted', fn, i[:8])
+    print('\npurged %d. Run `fastlane mac push_metadata` to upload the current set.' % len(live))
+    raise SystemExit(0)
 
 if not dupes:
     print('no duplicates'); raise SystemExit(0)
