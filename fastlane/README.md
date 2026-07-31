@@ -55,6 +55,14 @@ Build a Developer ID signed, notarized DMG for direct download. Not for the App 
 
 Attach the newest processed build to the current version.
 
+### mac bump
+
+```sh
+[bundle exec] fastlane mac bump
+```
+
+Bump MARKETING_VERSION. This is what makes a merge ship a build.
+
 ### mac push_metadata
 
 ```sh

@@ -133,6 +133,33 @@ bundle exec fastlane mac push_metadata     # listing text only, no build
 
 Keyword research method and measured data: `design/ASO.md`. Icon generator: `design/`.
 
+### Cutting a release
+
+`main` is always shippable. A release is a deliberate version bump, because **every
+marketing version costs an App Store review cycle**, and Apple caps build uploads
+per app per day (we burned 21 in one day on an unchanged 1.0.0 and hit a hard
+`Upload limit reached. Please wait 1 day`).
+
+So merging to main publishes source and the DMG, but only a **change to
+`MARKETING_VERSION` in `project.yml`** uploads a build to App Store Connect.
+
+```bash
+bundle exec fastlane mac bump version:1.0.1   # edits project.yml, refuses to go backwards
+$EDITOR fastlane/metadata/en-US/release_notes.txt
+# PR titled "chore(release): 1.0.1" -> merge -> CD uploads and attaches the build
+```
+
+To rebuild a binary for a version that already has one (a fix before first release,
+say), do not bump. Run the workflow by hand with `force_appstore`:
+
+```bash
+curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" -H 'Content-Type: application/json' \
+  "http://<gitea-host>/api/v1/repos/lucidfabrics/dreo-menubar/actions/workflows/ci-cd.yml/dispatches" \
+  -d '{"ref":"main","inputs":{"force_appstore":"true"}}'
+```
+
+Submitting stays manual in App Store Connect. The pipeline never presses Submit.
+
 ### Traps already paid for
 
 - **Never commit the App Review contact or demo Dreo account.** This repo is published to GitHub on
@@ -167,6 +194,11 @@ Keyword research method and measured data: `design/ASO.md`. Icon generator: `des
 - **`workflow_dispatch` on a branch publishes that branch to GitHub.** `cd-github-source` pushes
   `HEAD:refs/heads/main`, so dispatching a debug branch put debug commits on the public repo and it
   took a force push to undo. Dispatch on `main` only.
+- **Apple caps build uploads per app per day**, somewhere around 20. The error is
+  `Validation failed (409) Upload limit reached`. It is not a TestFlight limit, it applies to any
+  build upload. This is why cd-appstore is gated on a version change rather than running on every
+  merge, and why the GitHub jobs no longer sit behind it: an Apple quota has nothing to do with
+  whether the source can be published.
 - Gitea rejects any secret name starting with `GITHUB_`.
 - **Never set a Gitea secret with a here-string (`<<<`).** It appends a newline, which corrupts the
   value *and* defeats Gitea's log masking. That leaked a live token into a job log once.

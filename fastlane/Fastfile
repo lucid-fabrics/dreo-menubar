@@ -409,6 +409,32 @@ platform :mac do
     UI.success("Attached build #{build.version} to version #{version}")
   end
 
+  desc 'Bump MARKETING_VERSION. This is what makes a merge ship a build.'
+  lane :bump do |options|
+    project = File.expand_path('../project.yml', __dir__)
+    current = File.read(project)[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+    target  = options[:version].to_s.strip
+
+    UI.user_error!("Pass version:x.y.z (current is #{current})") if target.empty?
+    unless target =~ /\A\d+\.\d+\.\d+\z/
+      UI.user_error!("Version must look like 1.0.1, got #{target}")
+    end
+    # Apple rejects a version that does not sort above the released one, and finding
+    # that out at upload time wastes one of the day's limited build uploads.
+    if Gem::Version.new(target) <= Gem::Version.new(current)
+      UI.user_error!("#{target} is not newer than the current #{current}")
+    end
+
+    File.write(project, File.read(project)
+      .sub(/MARKETING_VERSION:\s*"[^"]+"/, %(MARKETING_VERSION: "#{target}")))
+    UI.success("project.yml: #{current} -> #{target}")
+
+    notes = File.expand_path('metadata/en-US/release_notes.txt', __dir__)
+    UI.important 'Now update the release notes, they are what users read:'
+    UI.message "  #{notes}"
+    UI.message 'Then open a PR titled "chore(release): ' + target + '". Merging it ships the build.'
+  end
+
   desc 'Push the store listing text only. No build, no submission.'
   lane :push_metadata do
     version = File.read(File.expand_path('../project.yml', __dir__))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]

@@ -1,10 +1,21 @@
 # Windbar CI/CD.
 #
-#   ci ──> cd-appstore ──> cd-github-source
+#         ┌─> cd-appstore        (only when MARKETING_VERSION changes)
+#   ci ───┤
+#         └─> cd-github-source ──> cd-github-release
 #
-# ci runs on every PR and push. cd-appstore only runs on a push to main, and only
-# if ci passed. cd-github-source only runs if the App Store upload succeeded, so
-# GitHub only ever shows code that actually shipped.
+# ci runs on every PR and push. The two GitHub jobs run on every push to main, so
+# the public repo and the free DMG always match main.
+#
+# cd-appstore is deliberately NOT on that chain any more, for two reasons. Apple
+# caps build uploads per app per day and we burned 21 in one day re-uploading an
+# unchanged 1.0.0, which then blocked everything downstream. And every marketing
+# version costs a review cycle, so shipping one has to be a decision rather than a
+# side effect of merging a README fix.
+#
+# A release is therefore: bump MARKETING_VERSION in project.yml, merge. To rebuild
+# a binary for a version that already has one, run this workflow by hand with
+# force_appstore.
 #
 # NO BINARY IS EVER PUBLISHED TO GITHUB. GitHub receives source and README only.
 # The .pkg exists solely inside the runner workspace and is uploaded to Apple.
@@ -24,6 +35,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_appstore:
+        description: 'Upload to App Store Connect even if MARKETING_VERSION is unchanged'
+        type: boolean
+        default: false
 
 env:
   LANG: en_US.UTF-8
@@ -54,8 +70,32 @@ jobs:
     runs-on: [hackintosh-ios]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # HEAD~1 has to be readable to see whether the version moved.
+          fetch-depth: 2
+
+      - name: Does this merge ship a new version?
+        id: gate
+        run: |
+          set -eo pipefail
+          read_version() { sed -n 's/.*MARKETING_VERSION: *"\(.*\)".*/\1/p'; }
+          CURRENT=$(read_version < project.yml)
+          PREVIOUS=$(git show HEAD~1:project.yml 2>/dev/null | read_version || true)
+
+          if [ "${{ github.event.inputs.force_appstore }}" = "true" ]; then
+            echo "forced: uploading $CURRENT even though it may already have builds"
+            echo "ship=yes" >> "$GITHUB_OUTPUT"
+          elif [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "version moved ${PREVIOUS:-none} -> $CURRENT, shipping a build"
+            echo "ship=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "MARKETING_VERSION is still $CURRENT, so there is nothing new to submit."
+            echo "Bump it in project.yml to ship, or re-run with force_appstore to rebuild."
+            echo "ship=no" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build, sign and upload
+        if: steps.gate.outputs.ship == 'yes'
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
@@ -87,7 +127,7 @@ jobs:
           bundle exec fastlane mac release
 
       - name: Notify Telegram
-        if: always()
+        if: always() && steps.gate.outputs.ship == 'yes'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -103,7 +143,7 @@ jobs:
 
   cd-github-source:
     name: 'CD · publish source to GitHub'
-    needs: [ci, cd-appstore]
+    needs: [ci]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: [hackintosh-ios]
     steps:
@@ -159,7 +199,7 @@ jobs:
 
   cd-github-release:
     name: 'CD · notarized DMG to GitHub'
-    needs: [ci, cd-appstore, cd-github-source]
+    needs: [ci, cd-github-source]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: [hackintosh-ios]
     steps:
