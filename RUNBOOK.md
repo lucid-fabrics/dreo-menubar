@@ -7,7 +7,7 @@ Operational notes for the build and release pipeline. For the app itself see `RE
 
 ## How a release happens
 
-Merge to `main` on **Gitea** (`<gitea-host>/lucidfabrics/dreo-menubar`, which is `origin`).
+Merge to `main` on **Gitea** (`<gitea-host>/lucidfabrics/windbar`, which is `origin`).
 
 ```
 ci  ──>  cd-appstore  ──>  cd-github-source
@@ -71,7 +71,7 @@ The API endpoint 404s on Gitea 1.27. Go to disk on the Gitea VM:
 
 ```bash
 ssh root@<gitea-host> \
-  'zstdcat /var/lib/gitea/data/data/actions_log/lucidfabrics/dreo-menubar/<xx>/<task_id>.log.zst'
+  'zstdcat /var/lib/gitea/data/data/actions_log/lucidfabrics/windbar/<xx>/<task_id>.log.zst'
 ```
 
 Job status codes in `action_run_job`: 1 success, 2 failure, 3 cancelled, 4 skipped, 5 waiting,
@@ -154,7 +154,7 @@ say), do not bump. Run the workflow by hand with `force_appstore`:
 
 ```bash
 curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" -H 'Content-Type: application/json' \
-  "http://<gitea-host>/api/v1/repos/lucidfabrics/dreo-menubar/actions/workflows/ci-cd.yml/dispatches" \
+  "http://<gitea-host>/api/v1/repos/lucidfabrics/windbar/actions/workflows/ci-cd.yml/dispatches" \
   -d '{"ref":"main","inputs":{"force_appstore":"true"}}'
 ```
 
@@ -173,7 +173,7 @@ Submitting stays manual in App Store Connect. The pipeline never presses Submit.
 
   ```bash
   curl -sS -X PUT -H "Authorization: token $GITEA_TOKEN" -H 'Content-Type: application/json' \
-    "http://<gitea-host>/api/v1/repos/lucidfabrics/dreo-menubar/actions/secrets/ASC_REVIEW_PHONE" \
+    "http://<gitea-host>/api/v1/repos/lucidfabrics/windbar/actions/secrets/ASC_REVIEW_PHONE" \
     -d "$(python3 -c 'import json,sys; print(json.dumps({"data": sys.argv[1]}))' '+15145550123')"
   ```
 
