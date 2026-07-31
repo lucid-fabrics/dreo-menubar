@@ -61,8 +61,8 @@ You need macOS 14 or later and Xcode. The `.xcodeproj` is generated rather than 
 
 ```bash
 brew install xcodegen
-git clone https://github.com/lucid-fabrics/dreo-menubar.git
-cd dreo-menubar
+git clone https://github.com/lucid-fabrics/windbar.git
+cd windbar
 xcodegen generate
 open Windbar.xcodeproj
 ```

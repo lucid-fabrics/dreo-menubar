@@ -58,4 +58,4 @@ auditable.
 ## Contact
 
 Questions or concerns: open an issue at
-<https://github.com/lucid-fabrics/dreo-menubar/issues>.
+<https://github.com/lucid-fabrics/windbar/issues>.

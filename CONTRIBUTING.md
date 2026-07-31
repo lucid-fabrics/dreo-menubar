@@ -8,8 +8,8 @@ The `.xcodeproj` is generated from `project.yml` and gitignored, so generate it 
 
 ```bash
 brew install xcodegen
-git clone git@github.com:lucid-fabrics/dreo-menubar.git
-cd dreo-menubar
+git clone git@github.com:lucid-fabrics/windbar.git
+cd windbar
 xcodegen generate
 open Windbar.xcodeproj
 ```

@@ -34,7 +34,7 @@ PROJECT          = 'Windbar.xcodeproj'
 PROFILE_NAME     = 'Windbar MAS'
 
 # Unlock passwords come from the environment, never from this file. It is
-# published to github.com/lucid-fabrics/dreo-menubar, so a literal here is a
+# published to github.com/lucid-fabrics/windbar, so a literal here is a
 # password on the open internet - which it was until 2026-07-30.
 KEYCHAINS = {
   "#{ENV['HOME']}/gitea-runner/ci-signing.keychain-db"      => 'SIGNING_KEYCHAIN_PASSWORD_SHARED',
@@ -43,7 +43,7 @@ KEYCHAINS = {
 
 # App Review wants a contact human and a working demo Dreo account. That is a real
 # name, a real phone number and a LIVE PASSWORD - and this repository is published
-# to github.com/lucid-fabrics/dreo-menubar on every green CD run.
+# to github.com/lucid-fabrics/windbar on every green CD run.
 #
 # So none of it is committed. CI writes fastlane/metadata/review_information/ from
 # secrets moments before deliver reads it, and that directory is gitignored. Do not

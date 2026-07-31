@@ -1,1 +1,1 @@
-https://github.com/lucid-fabrics/dreo-menubar/blob/main/docs/PRIVACY.md
+https://github.com/lucid-fabrics/windbar/blob/main/docs/PRIVACY.md

@@ -159,7 +159,7 @@ jobs:
           # cannot be parsed") and defeats Gitea's log masking, which printed a
           # real token into a job log on 2026-07-30. A key never goes in a URL.
           GH_DEPLOY_KEY: ${{ secrets.GH_DEPLOY_KEY }}
-          GH_REPO: lucid-fabrics/dreo-menubar
+          GH_REPO: lucid-fabrics/windbar
         run: |
           set -eo pipefail
           [ -n "$GH_DEPLOY_KEY" ] || { echo "GH_DEPLOY_KEY not set"; exit 1; }
@@ -213,7 +213,7 @@ jobs:
           SIGNING_KEYCHAIN_PASSWORD_SHARED: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD_SHARED }}
           SIGNING_KEYCHAIN_PASSWORD_WINDBAR: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD_WINDBAR }}
           GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
-          GH_REPO: lucid-fabrics/dreo-menubar
+          GH_REPO: lucid-fabrics/windbar
           CI_PIPELINE_NUMBER: ${{ github.run_number }}
         run: |
           set -eo pipefail
