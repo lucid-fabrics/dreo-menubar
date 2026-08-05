@@ -2,16 +2,24 @@
 
 ## The rule that governs everything here
 
-App Store search indexes the **app name, the subtitle and the keyword field**. It does **not** index
-the description. Anything you want found must be in one of those three, and Apple combines words
-across all three when matching, so repeating a word in the keyword field that already appears in the
-name or subtitle wastes characters.
+App Store search indexes the **app name and the keyword field**. It does **not** index the
+description. Anything you want found must be in one of those two, and Apple combines words across
+both when matching, so repeating a word in the keyword field that already appears in the name wastes
+characters.
 
-Windbar's name and subtitle already contribute: `windbar`, `menu`, `bar`, `control`, `dreo`, `fan(s)`.
-The keyword field therefore covers everything else.
+**Subtitle does NOT exist for macOS apps.** `fastlane/metadata/en-US/subtitle.txt` looks like it
+should work, and `deliver` silently accepts it and reports success, but the App Store Connect API
+rejects `subtitle` outright for macOS `appStoreVersionLocalizations` (`'subtitle' is not an attribute
+on the resource`, confirmed 2026-08-05 with a direct PATCH). Deliver just drops the field for this
+platform without warning. Found after `dreo` and `fan`, the two strongest keywords measured, had been
+sitting unindexed on the live listing for over a week because both were "covered by the subtitle"
+according to this doc, and the subtitle was never actually live. Subtitle is iOS/iPadOS/tvOS only;
+`subtitle.txt` was deleted rather than left around to mislead the next release.
 
-Limits: name 30 chars, subtitle 30, keywords 100. Comma-separated, **no spaces after commas**, since
-spaces count.
+Windbar's app **name** still contributes for free: `windbar` (7 of 30 chars used). Everything else,
+including `dreo` and `fan`, has to go in the keyword field.
+
+Limits: name 30 chars, keywords 100. Comma-separated, **no spaces after commas**, since spaces count.
 
 ## Tooling
 
@@ -45,9 +53,9 @@ Worth keeping, high traffic and accurate for this app:
 | `home` | 66 | 79 | high traffic, hard |
 | `remote` | 65 | 81 | high traffic, hard |
 | `breeze` | 59 | 45 | second best find, thematically perfect and uncontested |
-| `fan` | 57 | 60 | already in the subtitle |
+| `fan` | 57 | 60 | in the keyword field, see the subtitle note above |
 | `switch` | 56 | 53 | |
-| **`dreo`** | **54** | **42** | **best ratio of anything tested; this is why it is in the subtitle** |
+| **`dreo`** | **54** | **42** | **best ratio of anything tested, in the keyword field** |
 | `wifi` | 52 | 70 | |
 | `bluetooth` | 50 | 47 | accurate, the app pairs over BLE |
 | `devices` | 26 | 40 | |

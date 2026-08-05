@@ -1,1 +1,1 @@
-shortcuts,breeze,bluetooth,switch,summer,devices,wifi,home,remote,iot,gadget,desk,toggle,smart
+shortcuts,breeze,bluetooth,switch,summer,devices,wifi,home,remote,gadget,desk,toggle,smart,dreo,fan
