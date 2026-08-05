@@ -105,15 +105,22 @@ under plain `security find-identity`. That is normal, it is a product-signing ce
 
 ### Rebuilding a lost build machine
 
+Copy `fastlane/.env.example` to `fastlane/.env` and fill in `MATCH_GIT_URL`, `MATCH_PASSWORD` and
+`MATCH_GIT_BASIC_AUTHORIZATION` (fastlane loads `.env` automatically), or export them directly:
+
 ```bash
+export MATCH_GIT_URL=http://<gitea-host>/lucidfabrics/apple-certs   # bare LAN IP, ask the team
 export MATCH_PASSWORD=...                    # see fastlane/.env of lucidpal-ios
-export MATCH_GIT_BASIC_AUTHORIZATION=$(printf 'x-access-token:%s' "$(gh auth token)" | base64)
+export MATCH_GIT_BASIC_AUTHORIZATION=$(printf 'lucidfabrics:%s' "$(security find-generic-password -s gitea-lucidfabrics-token -w)" | base64)
 bundle exec fastlane mac restore_signing
 ```
 
-That pulls both certificates and the provisioning profile from the `windbar` branch of
-`lucid-fabrics/lucidpal-certs` and rebuilds the keychain. Verified working: it installs
-`Apple Distribution` and `3rd Party Mac Developer Installer` plus the `Windbar MAS` profile.
+That pulls both certificates and the provisioning profile from the `windbar` branch of the certs
+repo (self-hosted Gitea, moved from GitHub 2026-07-31) and rebuilds the keychain.
+`fastlane/Matchfile` deliberately does not hardcode `MATCH_GIT_URL`: this repo is public on GitHub
+and the Gitea host is a bare IP with no DNS name, so there is no reason to publish it. Verified
+working: it installs `Apple Distribution` and `3rd Party Mac Developer Installer` plus the
+`Windbar MAS` profile.
 
 Also needed on a fresh machine: XcodeGen (already at `~/.local/xcodegen/bin`, **not** on PATH, and
 `~/.local/bin` is root-owned so you cannot symlink into it), and rbenv Ruby 3.3.11.

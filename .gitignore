@@ -17,6 +17,13 @@ fastlane/screenshots/**/*.png.tmp
 # deliver time and never committed: this repo is public.
 fastlane/metadata/review_information/
 
+# Local-only fastlane secrets (App Review contact, MATCH_GIT_URL). Fastlane loads
+# these automatically; they must never reach the public repo. CI reads the same
+# values from Gitea Actions secrets instead, not from this file.
+fastlane/.env
+fastlane/.env.*
+!fastlane/.env.example
+
 # Claude Code session transcripts get written into the repo root. They are whole
 # conversations, occasionally with tokens and paths in them, and `git add -A`
 # would publish one to GitHub.

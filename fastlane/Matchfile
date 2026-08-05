@@ -1,4 +1,4 @@
-# Windbar signing assets live on the `windbar` ORPHAN branch of lucidpal-certs.
+# Windbar signing assets live on the `windbar` ORPHAN branch of apple-certs.
 #
 # Not `master`. That branch mixes match-V2-encrypted certs with two *unencrypted*
 # beeside .mobileprovision files, and match decrypts everything it clones, so it
@@ -15,8 +15,19 @@
 #
 # THIS IS FOR RECOVERY, NOT FOR CI. Normal builds use the persistent keychains
 # already on the build VM and never invoke match. See `fastlane mac restore_signing`.
+#
+# Moved from GitHub (lucid-fabrics/lucidpal-certs) to this self-hosted Gitea repo
+# 2026-07-31. Auth is via MATCH_GIT_BASIC_AUTHORIZATION (base64 "username:token"),
+# supplied by whoever runs restore_signing - not stored in CI secrets.
+#
+# The URL itself comes from MATCH_GIT_URL rather than being written here: this repo
+# is public on GitHub, and the Gitea box it points at is a bare LAN IP with no DNS
+# name, so hardcoding it would publish internal network layout for no reason. See
+# RUNBOOK.md > restore_signing.
+match_git_url = ENV['MATCH_GIT_URL']
+UI.user_error!('MATCH_GIT_URL is not set. See RUNBOOK.md > restore_signing.') if match_git_url.to_s.empty?
 
-git_url('https://github.com/lucid-fabrics/lucidpal-certs')
+git_url(match_git_url)
 git_branch('windbar')
 storage_mode('git')
 
