@@ -52,10 +52,13 @@ enum DreoBLEMessage {
     /// map positionally, not by key, so order here isn't cosmetic.
     /// `includeSelfCheck: false` drops the `scc` connectivity-probe block
     /// and sets `sc` to 0, shrinking the message from 213 to ~78 bytes. The
-    /// fan then joins WiFi without probing the internet afterwards. Needed
-    /// on CoreBluetooth, which (unlike Android) offers no way to raise the
-    /// ATT MTU: an oversized write gets split into ATT prepare/execute
-    /// writes, which this peripheral's firmware may not accept.
+    /// fan then joins WiFi without probing the internet afterwards. This is
+    /// a fallback, not the default: CoreBluetooth (unlike Android) offers no
+    /// way to raise the ATT MTU, so an oversized write gets split into ATT
+    /// prepare/execute writes, which a peripheral's firmware may reject.
+    /// Measured on the hardware here macOS negotiates 515, so the full
+    /// 213-byte message fits in one write and the shrink isn't needed. Kept
+    /// for peripherals or Macs that negotiate less generously.
     static func connectWiFi(
         network: DiscoveredWiFiNetwork,
         password: String,
